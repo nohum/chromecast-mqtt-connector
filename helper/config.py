@@ -18,6 +18,3 @@ class Config:
 
     def get_mqtt_broker_port(self):
         return self.config.getint('mqtt', 'broker_port', fallback=1883)
-
-    def get_chromecast_connect_immediately(self):
-        return self.config.getboolean('chromecast', 'connect_immediately', fallback=True)
