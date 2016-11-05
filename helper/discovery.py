@@ -4,6 +4,8 @@ from threading import Thread, Condition
 from zeroconf import ServiceBrowser, Zeroconf
 
 
+GOOGLE_CAST_IDENTIFIER = "_googlecast._tcp.local."
+
 class DiscoveryCallback:
 
     def on_chromecast_appeared(self, device_name, model_name, ip_address, port):
@@ -52,6 +54,10 @@ class ChromecastDiscovery(Thread):
     def remove_service(self, zconf, typ, name):
         """ Remove a service from the collection. """
 
+        # easy filtering
+        if not name.endswith(GOOGLE_CAST_IDENTIFIER):
+            return
+
         self.logger.info("removing chromecast with name \"%s\"" % name)
 
         if name in self.services:
@@ -60,6 +66,10 @@ class ChromecastDiscovery(Thread):
 
     def add_service(self, zconf, typ, name):
         """ Add a service to the collection. """
+
+        # easy filtering
+        if not name.endswith(GOOGLE_CAST_IDENTIFIER):
+            return
 
         self.logger.info("adding chromecast with name \"%s\"" % name)
 

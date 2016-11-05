@@ -3,7 +3,7 @@ import logging
 
 class MqttConnectionCallback:
 
-    def on_mqtt_connected(self):
+    def on_mqtt_connected(self, client):
         pass
 
     def on_mqtt_message_received(self, topic, payload):
@@ -31,7 +31,7 @@ class MqttConnection:
 
         # subscribing in on_connect() means that if we lose the connection and
         # reconnect then subscriptions will be renewed.
-        self.connection_callback.on_mqtt_connected()
+        self.connection_callback.on_mqtt_connected(self)
 
         if len(self.queue) > 0:
             self.logger.debug("found %d queued messages" % len(self.queue))
@@ -51,7 +51,28 @@ class MqttConnection:
     def send_message(self, topic, payload):
         return self._internal_send_message(topic, payload, True)
 
+    def subscribe(self, topic):
+        self.logger.debug("subscribing to topic %s" % topic)
+        result = self.mqtt.subscribe(topic)
+
+        if result[0] == MQTT_ERR_NO_CONN:
+            self.logger.warning("no connection while trying to subscribe to topic %s" % topic)
+            return False
+
+        return result[0] == MQTT_ERR_SUCCESS
+
+    def unsubscribe(self, topic):
+        self.logger.debug("unsubscribing from topic %s" % topic)
+        result = self.mqtt.unsubscribe(topic)
+
+        if result[0] == MQTT_ERR_NO_CONN:
+            self.logger.warning("no connection while trying to unsubscribe from topic %s" % topic)
+            return False
+
+        return result[0] == MQTT_ERR_SUCCESS
+
     def _internal_send_message(self, topic, payload, queue):
+        self.logger.debug("sending topic %s with value %s" % (topic, payload))
         result = self.mqtt.publish(topic, payload, retain=True)
 
         if result == MQTT_ERR_NO_CONN and queue:

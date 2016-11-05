@@ -10,31 +10,31 @@ Provides status information and control capabilities of your Chromecast devices 
 
 ## Discovery and control
 
-Using MQTT you can find the following topics. `UUID` is a device-unique identifier for
-each Chromecast.
+Using MQTT you can find the following topics. `IP` is the ip address used to connect
+to each Chromecast.
 
 ```
 # - read only
-chromecast.UUID.friendly_name
-chromecast.UUID.address
-chromecast.UUID.connection_status
-chromecast.UUID.is_stand_by
-chromecast.UUID.currently_running_app
+chromecast/IP/friendly_name
+chromecast/IP/connection_status
+chromecast/IP/cast_type
+chromecast/IP/current_app
+chromecast/IP/player_state
 
 # - r/w
-chromecast.UUID.volume_level
-chromecast.UUID.volume_mute
-chromecast.UUID.player_state
-chromecast.UUID.player_position
-chromecast.UUID.player_duration
+chromecast/IP/volume_level
+chromecast/IP/volume_muted
+chromecast/IP/player_position
+chromecast/IP/player_duration
+chromecast/IP/player_command
 
 # - read only
-chromecast.UUID.media.title
-chromecast.UUID.media.album_name
-chromecast.UUID.media.artist
-chromecast.UUID.media.album_artist
-chromecast.UUID.media.track
-chromecast.UUID.media.images
-chromecast.UUID.media.content_type
-chromecast.UUID.media.content_url
+chromecast/IP/media/title
+chromecast/IP/media/album_name
+chromecast/IP/media/artist
+chromecast/IP/media/album_artist
+chromecast/IP/media/track
+chromecast/IP/media/images
+chromecast/IP/media/content_type
+chromecast/IP/media/content_url
 ```
