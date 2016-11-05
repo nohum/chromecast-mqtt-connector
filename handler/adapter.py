@@ -1,14 +1,14 @@
 import logging
 from pychromecast import get_chromecast
 from pychromecast.socket_client import CONNECTION_STATUS_CONNECTED
-from handler.properties import MqttPropertyHandler
+from handler.properties import MqttPropertyHandler, MqttChangesCallback
 
 
 class ChromecastConnectionCallback:
     pass
 
 
-class ChromecastConnection():
+class ChromecastConnection(MqttChangesCallback):
 
     def __init__(self, ip_address, mqtt_connection, connection_callback):
         """
@@ -18,7 +18,7 @@ class ChromecastConnection():
         self.logger = logging.getLogger("chromecast")
         self.ip_address = ip_address
         self.device = get_chromecast(ip=ip_address)
-        self.mqtt_properties = MqttPropertyHandler(mqtt_connection, ip_address)
+        self.mqtt_properties = MqttPropertyHandler(mqtt_connection, ip_address, self)
         self.connection_callback = connection_callback
 
         self.device.register_status_listener(self)
@@ -31,7 +31,7 @@ class ChromecastConnection():
         Called if this Chromecast device has disappeared and resources should be cleaned up.
         """
 
-        pass
+        self.mqtt_properties.unsubscribe()
 
     def is_interesting_message(self, topic):
         """
@@ -45,7 +45,7 @@ class ChromecastConnection():
         Handle an incoming mqtt message.
         """
 
-        pass
+        self.mqtt_properties.handle_message(topic, payload)
 
     def new_cast_status(self, status):
         """
@@ -91,6 +91,73 @@ class ChromecastConnection():
         # 'supports_seek': True, 'current_time': 13938.854693, 'supported_media_commands': 15}>
         self.logger.info("received new media status from chromecast %s" % self.ip_address)
 
+        images = status.media_metadata.get('images', [])
+        image_filtered = None
+
+        for image in images:
+            image_filtered = image["url"]
+            break  # only take the first image
+
         self.mqtt_properties.write_player_status(status.player_state, status.current_time, status.duration)
         self.mqtt_properties.write_media_status(status.title, status.album_name, status.artist, status.album_artist,
-                                                status.track, status.images, status.content_type, status.content_id)
+                                                status.track, image_filtered, status.content_type, status.content_id)
+
+    def on_volume_mute_requested(self, is_muted):
+        self.logger.info("volume mute request, is muted = %s" % is_muted)
+
+        self.device.wait(0.5)
+        self.device.set_volume_muted(is_muted)
+
+    def on_volume_level_relative_requested(self, relative_value):
+        self.logger.info("volume change relative request, value = %d" % relative_value)
+
+        self.device.wait(0.5)
+        self.device.set_volume(self.device.status.volume_level + (relative_value / 100))
+
+    def on_volume_level_absolute_requested(self, absolute_value):
+        self.logger.info("volume change absolute request, value = %d" % absolute_value)
+
+        self.device.wait(0.5)
+        self.device.set_volume(absolute_value / 100)
+
+    def on_player_position_requested(self, position):
+        self.logger.info("volume change position request, position = %d" % position)
+
+        self.device.wait(0.5)
+        self.device.media_controller.seek(position)
+
+    def on_player_play_stream_requested(self, content_url, content_type):
+        self.logger.info("play stream request, url = %s, type = %s" % (content_url, content_type))
+
+        self.device.wait(0.5)
+        self.device.media_controller.play_media(content_url, content_type, autoplay=True)
+
+    def on_player_pause_requested(self):
+        self.logger.info("pause request")
+
+        self.device.wait(0.5)
+        self.device.media_controller.pause()
+
+    def on_player_resume_requested(self):
+        self.logger.info("resume request")
+
+        self.device.wait(0.5)
+        self.device.media_controller.play()
+
+    def on_player_stop_requested(self):
+        self.logger.info("stop request")
+
+        self.device.wait(0.5)
+        self.device.media_controller.stop()
+
+    def on_player_skip_requested(self):
+        self.logger.info("skip request")
+
+        self.device.wait(0.5)
+        self.device.media_controller.seek(int(self.device.status.duration) - 1)
+
+    def on_player_rewind_requested(self):
+        self.logger.info("rewind request")
+
+        self.device.wait(0.5)
+        self.device.media_controller.rewind()

@@ -45,7 +45,7 @@ class MqttConnection:
         """
         The callback for when a PUBLISH message is received from the server.
         """
-        self.logger.debug("received mqtt publish of %s with data %s" % (msg.topic, msg.payload))
+        self.logger.debug("received mqtt publish of %s with data \"%s\"" % (msg.topic, msg.payload))
         self.connection_callback.on_mqtt_message_received(msg.topic, msg.payload)
 
     def send_message(self, topic, payload):
@@ -72,14 +72,14 @@ class MqttConnection:
         return result[0] == MQTT_ERR_SUCCESS
 
     def _internal_send_message(self, topic, payload, queue):
-        self.logger.debug("sending topic %s with value %s" % (topic, payload))
+        self.logger.debug("sending topic %s with value \"%s\"" % (topic, payload))
         result = self.mqtt.publish(topic, payload, retain=True)
 
         if result == MQTT_ERR_NO_CONN and queue:
             self.logger.debug("no connection, saving message with topic %s to queue" % topic)
             self.queue.append([topic, payload])
-        elif result != MQTT_ERR_SUCCESS:
-            self.logger.warn("failed sending message %s, mqtt error code %d" % (topic, result))
+        elif result[0] != MQTT_ERR_SUCCESS:
+            self.logger.warn("failed sending message %s, mqtt error %s" % (topic, result))
             return False
 
         return True
@@ -87,7 +87,7 @@ class MqttConnection:
     def start_connection(self):
         try:
             self.mqtt.connect(self.ip, self.port)
-        except ConnectionError as e:
+        except ConnectionError:
             self.logger.exception("failed connecting to mqtt")
             return False
 

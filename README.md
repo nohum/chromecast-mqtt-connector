@@ -19,14 +19,13 @@ chromecast/IP/friendly_name
 chromecast/IP/connection_status
 chromecast/IP/cast_type
 chromecast/IP/current_app
-chromecast/IP/player_state
+chromecast/IP/player_duration
 
 # - r/w
 chromecast/IP/volume_level
 chromecast/IP/volume_muted
 chromecast/IP/player_position
-chromecast/IP/player_duration
-chromecast/IP/player_command
+chromecast/IP/player_state
 
 # - read only
 chromecast/IP/media/title
