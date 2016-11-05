@@ -150,8 +150,16 @@ class MqttPropertyHandler:
         self._write(TOPIC_CONNECTION_STATUS, status)
 
     def handle_message(self, topic, payload):
+        if isinstance(payload, bytes):
+            payload = payload.decode('utf-8')
+
         payload = str(payload).strip()
         # prevent write of already known values TODO fails with differently formatted values (e.g float with 3 decimals)
+
+        if topic in self.written_values and self.written_values[topic] == payload:
+            self.logger.warning("value \"%s\" for topic %s already known, handling is ignored" % (payload, topic))
+            return
+
         self.written_values[topic] = payload
 
         if TOPIC_VOLUME_MUTED % self.topic_filter == topic:
@@ -227,6 +235,12 @@ class MqttPropertyHandler:
         elif payload == STATE_REQUEST_REWIND:
             self.changes_callback.on_player_rewind_requested()
         else:
+            if len(payload) == 0:
+                return
+
+            if payload[0] != "[":
+                return
+
             # noinspection PyBroadException
             try:
                 data = loads(payload)

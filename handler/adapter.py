@@ -154,7 +154,7 @@ class ChromecastConnection(MqttChangesCallback):
         self.logger.info("skip request")
 
         self.device.wait(0.5)
-        self.device.media_controller.seek(int(self.device.status.duration) - 1)
+        self.device.media_controller.seek(int(self.device.media_controller.status.duration) - 1)
 
     def on_player_rewind_requested(self):
         self.logger.info("rewind request")
