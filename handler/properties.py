@@ -8,6 +8,10 @@ TOPIC_CONNECTION_STATUS = "chromecast/%s/connection_status"
 TOPIC_CAST_TYPE = "chromecast/%s/cast_type"
 TOPIC_CURRENT_APP = "chromecast/%s/current_app"
 TOPIC_PLAYER_DURATION = "chromecast/%s/player_duration"
+TOPIC_PLAYER_POSITION = "chromecast/%s/player_position"
+TOPIC_PLAYER_STATE = "chromecast/%s/player_state"
+TOPIC_VOLUME_LEVEL = "chromecast/%s/volume_level"
+TOPIC_VOLUME_MUTED = "chromecast/%s/volume_muted"
 TOPIC_MEDIA_TITLE = "chromecast/%s/media/title"
 TOPIC_MEDIA_ALBUM_NAME = "chromecast/%s/media/album_name"
 TOPIC_MEDIA_ARTIST = "chromecast/%s/media/artist"
@@ -17,11 +21,11 @@ TOPIC_MEDIA_IMAGES = "chromecast/%s/media/images"
 TOPIC_MEDIA_CONTENT_TYPE = "chromecast/%s/media/content_type"
 TOPIC_MEDIA_CONTENT_URL = "chromecast/%s/media/content_url"
 
-# publish + subscribe
-TOPIC_VOLUME_LEVEL = "chromecast/%s/volume_level"
-TOPIC_VOLUME_MUTED = "chromecast/%s/volume_muted"
-TOPIC_PLAYER_POSITION = "chromecast/%s/player_position"
-TOPIC_PLAYER_STATE = "chromecast/%s/player_state"
+# subscribe
+TOPIC_COMMAND_VOLUME_LEVEL = "chromecast/%s/command/volume_level"
+TOPIC_COMMAND_VOLUME_MUTED = "chromecast/%s/command/volume_muted"
+TOPIC_COMMAND_PLAYER_POSITION = "chromecast/%s/command/player_position"
+TOPIC_COMMAND_PLAYER_STATE = "chromecast/%s/command/player_state"
 
 STATE_REQUEST_RESUME = "RESUME"
 STATE_REQUEST_PAUSE = "PAUSE"
@@ -85,16 +89,16 @@ class MqttPropertyHandler:
             return False
 
     def _initialize_topics(self):
-        self.mqtt.subscribe(TOPIC_VOLUME_LEVEL % self.topic_filter)
-        self.mqtt.subscribe(TOPIC_VOLUME_MUTED % self.topic_filter)
-        self.mqtt.subscribe(TOPIC_PLAYER_POSITION % self.topic_filter)
-        self.mqtt.subscribe(TOPIC_PLAYER_STATE % self.topic_filter)
+        self.mqtt.subscribe(TOPIC_COMMAND_VOLUME_LEVEL % self.topic_filter)
+        self.mqtt.subscribe(TOPIC_COMMAND_VOLUME_MUTED % self.topic_filter)
+        self.mqtt.subscribe(TOPIC_COMMAND_PLAYER_POSITION % self.topic_filter)
+        self.mqtt.subscribe(TOPIC_COMMAND_PLAYER_STATE % self.topic_filter)
 
     def unsubscribe(self):
-        self.mqtt.unsubscribe(TOPIC_VOLUME_LEVEL % self.topic_filter)
-        self.mqtt.unsubscribe(TOPIC_VOLUME_MUTED % self.topic_filter)
-        self.mqtt.unsubscribe(TOPIC_PLAYER_POSITION % self.topic_filter)
-        self.mqtt.unsubscribe(TOPIC_PLAYER_STATE % self.topic_filter)
+        self.mqtt.unsubscribe(TOPIC_COMMAND_VOLUME_LEVEL % self.topic_filter)
+        self.mqtt.unsubscribe(TOPIC_COMMAND_VOLUME_MUTED % self.topic_filter)
+        self.mqtt.unsubscribe(TOPIC_COMMAND_PLAYER_POSITION % self.topic_filter)
+        self.mqtt.unsubscribe(TOPIC_COMMAND_PLAYER_STATE % self.topic_filter)
 
     def _write(self, topic, value):
         # noinspection PyBroadException
@@ -162,13 +166,13 @@ class MqttPropertyHandler:
 
         self.written_values[topic] = payload
 
-        if TOPIC_VOLUME_MUTED % self.topic_filter == topic:
+        if TOPIC_COMMAND_VOLUME_MUTED % self.topic_filter == topic:
             self.handle_volume_mute_change(payload)
-        elif TOPIC_VOLUME_LEVEL % self.topic_filter == topic:
+        elif TOPIC_COMMAND_VOLUME_LEVEL % self.topic_filter == topic:
             self.handle_volume_level_change(payload)
-        elif TOPIC_PLAYER_POSITION % self.topic_filter == topic:
+        elif TOPIC_COMMAND_PLAYER_POSITION % self.topic_filter == topic:
             self.handle_player_position_change(payload)
-        elif TOPIC_PLAYER_STATE % self.topic_filter == topic:
+        elif TOPIC_COMMAND_PLAYER_STATE % self.topic_filter == topic:
             self.handle_player_state_change(payload)
 
     def handle_volume_mute_change(self, payload):
