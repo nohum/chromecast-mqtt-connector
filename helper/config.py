@@ -18,3 +18,12 @@ class Config:
 
     def get_mqtt_broker_port(self):
         return self.config.getint('mqtt', 'broker_port', fallback=1883)
+
+    def get_mqtt_broker_use_auth(self):
+        return self.config.getboolean('mqtt', 'use_auth', fallback=False)
+
+    def get_mqtt_broker_username(self):
+        return self.config.get('mqtt', 'username', fallback=None)
+
+    def get_mqtt_broker_password(self):
+        return self.config.get('mqtt', 'password', fallback=None)

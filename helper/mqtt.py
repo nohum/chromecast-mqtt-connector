@@ -11,10 +11,13 @@ class MqttConnectionCallback:
 
 class MqttConnection:
 
-    def __init__(self, ip, port, connection_callback):
+    def __init__(self, ip, port, username, password, connection_callback):
         self.logger = logging.getLogger("mqtt")
 
         self.mqtt = Client()
+        if username is not None:
+            self.mqtt.username_pw_set(username, password)
+
         self.mqtt.on_connect = self._on_connect
         self.mqtt.on_message = self._on_message
 

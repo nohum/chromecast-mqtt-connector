@@ -18,7 +18,15 @@ config = Config('config.ini')
 event_handler = EventHandler()
 
 logger.debug("~ connecting to mqtt")
-mqtt = MqttConnection(config.get_mqtt_broker_address(), config.get_mqtt_broker_port(), event_handler)
+username = None
+password = None
+if config.get_mqtt_broker_use_auth():
+    logger.debug("~ using username and password to connect to mqtt")
+    username = config.get_mqtt_broker_username()
+    password = config.get_mqtt_broker_password()
+
+mqtt = MqttConnection(config.get_mqtt_broker_address(), config.get_mqtt_broker_port(), username, password,
+                      event_handler)
 if not mqtt.start_connection():
     exit(1)
 
