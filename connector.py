@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 import logging
+import os
 
 from handler.event import EventHandler
 from helper.config import Config
@@ -8,12 +9,11 @@ from time import sleep
 from helper.mqtt import MqttConnection
 
 logging.basicConfig(level=logging.DEBUG)
-# logging.getLogger("pika").setLevel(logging.WARNING)
 
 logger = logging.getLogger(__name__)
 
 logger.debug("~ reading config")
-config = Config('config.ini')
+config = Config(os.getcwd() + '/config.ini')
 
 event_handler = EventHandler()
 

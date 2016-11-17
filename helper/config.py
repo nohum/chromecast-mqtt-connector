@@ -9,9 +9,13 @@ class Config:
         self.config = configparser.ConfigParser()
         self.logger = logging.getLogger("config")
 
+        self.logger.info("config file path: %s" % filename)
+
         if os.path.isfile(filename):
-            self.logger.warn("log file not found: %s" % filename)
+            self.logger.info("config file has been found")
             self.config.read(filename)
+        else:
+            self.logger.warn("config file has not been found")
 
     def get_mqtt_broker_address(self):
         return self.config.get('mqtt', 'broker_address', fallback="127.0.0.1")
