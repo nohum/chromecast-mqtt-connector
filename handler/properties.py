@@ -75,7 +75,6 @@ class MqttPropertyHandler:
         self.mqtt = mqtt_connection
         self.topic_filter = mqtt_topic_filter
         self.changes_callback = changes_callback
-        self.written_values = {}
         
         self._initialize_topics()
 
@@ -119,11 +118,7 @@ class MqttPropertyHandler:
                 value = str(value)
 
             formatted_topic = topic % self.topic_filter
-            # very easy filter to prevent writing the same value twice
-            if formatted_topic in self.written_values and self.written_values[formatted_topic] == value:
-                return
 
-            self.written_values[formatted_topic] = value
             self.mqtt.send_message(formatted_topic, value)
         except Exception:
             self.logger.exception("value conversion error")
@@ -158,13 +153,6 @@ class MqttPropertyHandler:
             payload = payload.decode('utf-8')
 
         payload = str(payload).strip()
-        # prevent write of already known values TODO fails with differently formatted values (e.g float with 3 decimals)
-
-        if topic in self.written_values and self.written_values[topic] == payload:
-            self.logger.warning("value \"%s\" for topic %s already known, handling is ignored" % (payload, topic))
-            return
-
-        self.written_values[topic] = payload
 
         if TOPIC_COMMAND_VOLUME_MUTED % self.topic_filter == topic:
             self.handle_volume_mute_change(payload)
