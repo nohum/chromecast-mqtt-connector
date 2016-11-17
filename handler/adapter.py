@@ -35,6 +35,7 @@ class ChromecastConnection(MqttChangesCallback):
         Called if this Chromecast device has disappeared and resources should be cleaned up.
         """
 
+        self.device.disconnect()
         self.mqtt_properties.write_connection_status(CONNECTION_STATUS_DISCONNECTED)
         self.mqtt_properties.unsubscribe()
 
@@ -89,7 +90,7 @@ class ChromecastConnection(MqttChangesCallback):
             self.logger.warn("received failure from connection, current failure counter: %d"
                              % self.connection_failure_count)
 
-            if self.connection_failure_count > 10:
+            if self.connection_failure_count > 7:
                 self.logger.warn("failure counter too high, treating chromecast as finally failed")
                 self.connection_callback.on_connection_failed(self, self.ip_address)
 
