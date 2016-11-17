@@ -1,11 +1,14 @@
 import logging
 from pychromecast import get_chromecast
-from pychromecast.socket_client import CONNECTION_STATUS_CONNECTED
+from pychromecast.socket_client import CONNECTION_STATUS_CONNECTED, CONNECTION_STATUS_FAILED, \
+    CONNECTION_STATUS_DISCONNECTED
 from handler.properties import MqttPropertyHandler, MqttChangesCallback
 
 
 class ChromecastConnectionCallback:
-    pass
+
+    def on_connection_failed(self, chromecast_connection, ip_address):
+        pass
 
 
 class ChromecastConnection(MqttChangesCallback):
@@ -20,6 +23,7 @@ class ChromecastConnection(MqttChangesCallback):
         self.device = get_chromecast(ip=ip_address)
         self.mqtt_properties = MqttPropertyHandler(mqtt_connection, ip_address, self)
         self.connection_callback = connection_callback
+        self.connection_failure_count = 0
 
         self.device.register_status_listener(self)
         self.device.media_controller.register_status_listener(self)
@@ -31,6 +35,7 @@ class ChromecastConnection(MqttChangesCallback):
         Called if this Chromecast device has disappeared and resources should be cleaned up.
         """
 
+        self.mqtt_properties.write_connection_status(CONNECTION_STATUS_DISCONNECTED)
         self.mqtt_properties.unsubscribe()
 
     def is_interesting_message(self, topic):
@@ -60,6 +65,7 @@ class ChromecastConnection(MqttChangesCallback):
                                                self.device.cast_type, self.device.name)
         # dummy write as connection status callback does not work at the moment
         self.mqtt_properties.write_connection_status(CONNECTION_STATUS_CONNECTED)
+        self.connection_failure_count = 0
 
     def new_launch_error(self, launch_failure):
         """
@@ -75,6 +81,17 @@ class ChromecastConnection(MqttChangesCallback):
 
         self.logger.info("received new connection status from chromecast %s: %s" % (self.ip_address, status))
         self.mqtt_properties.write_connection_status(status.status)
+
+        if status.status == CONNECTION_STATUS_CONNECTED:
+            self.connection_failure_count = 0
+        elif status.status == CONNECTION_STATUS_FAILED:
+            self.connection_failure_count += 1
+            self.logger.warn("received failure from connection, current failure counter: %d"
+                             % self.connection_failure_count)
+
+            if self.connection_failure_count > 10:
+                self.logger.warn("failure counter too high, treating chromecast as finally failed")
+                self.connection_callback.on_connection_failed(self, self.ip_address)
 
     def new_media_status(self, status):
         """

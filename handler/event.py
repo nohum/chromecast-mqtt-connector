@@ -45,3 +45,6 @@ class EventHandler(DiscoveryCallback, MqttConnectionCallback, ChromecastConnecti
 
         device = self.known_devices.pop(ip_address)
         device.unregister_device()
+
+    def on_connection_failed(self, chromecast_connection, ip_address):
+        self.on_chromecast_disappeared(ip_address)
