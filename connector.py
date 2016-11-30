@@ -13,7 +13,7 @@ logging.basicConfig(level=logging.DEBUG)
 logger = logging.getLogger(__name__)
 
 logger.debug("~ reading config")
-config = Config(os.getcwd() + '/config.ini')
+config = Config('config.ini')
 
 event_handler = EventHandler()
 

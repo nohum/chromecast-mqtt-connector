@@ -37,7 +37,7 @@ class EventHandler(DiscoveryCallback, MqttConnectionCallback, ChromecastConnecti
         self.logger.info("added device %s" % ip_address)
 
     def on_chromecast_disappeared(self, ip_address):
-        if not ip_address in self.known_devices:
+        if ip_address not in self.known_devices:
             self.logger.warn("device %s not known" % ip_address)
             return
 
@@ -47,4 +47,9 @@ class EventHandler(DiscoveryCallback, MqttConnectionCallback, ChromecastConnecti
         device.unregister_device()
 
     def on_connection_failed(self, chromecast_connection, ip_address):
-        self.on_chromecast_disappeared(ip_address)
+        self.logger.debug("connection to device %s failed to often, creating new device" % ip_address)
+
+        device = self.known_devices.pop(ip_address)
+        device.unregister_device()
+
+        self.known_devices[ip_address] = ChromecastConnection(ip_address, self.mqtt_client, self)

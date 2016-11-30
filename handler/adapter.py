@@ -20,7 +20,7 @@ class ChromecastConnection(MqttChangesCallback):
 
         self.logger = logging.getLogger("chromecast")
         self.ip_address = ip_address
-        self.device = get_chromecast(ip=ip_address)
+        self.device = get_chromecast(ip=ip_address, tries=10)
         self.mqtt_properties = MqttPropertyHandler(mqtt_connection, ip_address, self)
         self.connection_callback = connection_callback
         self.connection_failure_count = 0
