@@ -21,9 +21,15 @@ class ChromecastConnection(MqttChangesCallback):
         self.logger = logging.getLogger("chromecast")
         self.ip_address = ip_address
         self.device = get_chromecast(ip=ip_address, tries=10)
-        self.mqtt_properties = MqttPropertyHandler(mqtt_connection, ip_address, self)
         self.connection_callback = connection_callback
         self.connection_failure_count = 0
+
+        if self.device is None:
+            self.logger.error("was not able to find chromecast %s" % self.ip_address)
+            self.connection_callback.on_connection_failed(self, self.ip_address)
+            return
+
+        self.mqtt_properties = MqttPropertyHandler(mqtt_connection, ip_address, self)
 
         self.device.register_status_listener(self)
         self.device.media_controller.register_status_listener(self)
