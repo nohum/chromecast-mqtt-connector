@@ -75,6 +75,7 @@ class MqttPropertyHandler:
         self.mqtt = mqtt_connection
         self.topic_filter = mqtt_topic_filter
         self.changes_callback = changes_callback
+        self.write_filter = {}
         
         self._initialize_topics()
 
@@ -119,6 +120,11 @@ class MqttPropertyHandler:
 
             formatted_topic = topic % self.topic_filter
 
+            # filter to prevent writing the same value again until it has changed
+            if formatted_topic in self.write_filter and self.write_filter[formatted_topic] == value:
+                return
+
+            self.write_filter[formatted_topic] = value
             self.mqtt.send_message(formatted_topic, value)
         except Exception:
             self.logger.exception("value conversion error")
