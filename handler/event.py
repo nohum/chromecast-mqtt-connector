@@ -50,6 +50,7 @@ class EventHandler(DiscoveryCallback, MqttConnectionCallback, ChromecastConnecti
         self.logger.debug("connection to device %s failed to often, creating new device" % ip_address)
 
         device = self.known_devices.pop(ip_address)
-        device.unregister_device()
+        if device is not None:
+            device.unregister_device()
 
         self.known_devices[ip_address] = ChromecastConnection(ip_address, self.mqtt_client, self)

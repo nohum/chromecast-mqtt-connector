@@ -1,5 +1,5 @@
 import logging
-from pychromecast import get_chromecast
+from pychromecast import get_chromecast, ChromecastConnectionError
 from pychromecast.socket_client import CONNECTION_STATUS_CONNECTED, CONNECTION_STATUS_FAILED, \
     CONNECTION_STATUS_DISCONNECTED
 from handler.properties import MqttPropertyHandler, MqttChangesCallback
@@ -20,14 +20,19 @@ class ChromecastConnection(MqttChangesCallback):
 
         self.logger = logging.getLogger("chromecast")
         self.ip_address = ip_address
-        self.device = get_chromecast(ip=ip_address, tries=10)
         self.connection_callback = connection_callback
         self.connection_failure_count = 0
 
-        if self.device is None:
-            self.logger.error("was not able to find chromecast %s" % self.ip_address)
+        try:
+            self.device = get_chromecast(ip=ip_address, tries=10)
+
+            if self.device is None:
+                self.logger.error("was not able to find chromecast %s" % self.ip_address)
+                self.connection_callback.on_connection_failed(self, self.ip_address)
+                return
+        except ChromecastConnectionError:
+            self.logger.error("had connection error while finding chromecast %s" % self.ip_address)
             self.connection_callback.on_connection_failed(self, self.ip_address)
-            return
 
         self.mqtt_properties = MqttPropertyHandler(mqtt_connection, ip_address, self)
 
