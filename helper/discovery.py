@@ -40,7 +40,7 @@ class ChromecastDiscovery(Thread):
     def run(self):
         try:
             zeroconf = Zeroconf()
-            browser = ServiceBrowser(zeroconf, "_googlecast._tcp.local.", self)
+            browser = ServiceBrowser(zeroconf, GOOGLE_CAST_IDENTIFIER, self)
 
             with self.run_condition:
                 self.run_condition.wait()
