@@ -46,7 +46,9 @@ class ChromecastConnection(MqttChangesCallback):
         Called if this Chromecast device has disappeared and resources should be cleaned up.
         """
 
-        self.device.disconnect()
+        if self.device is not None:
+            self.device.disconnect()
+
         self.mqtt_properties.write_connection_status(CONNECTION_STATUS_DISCONNECTED)
         self.mqtt_properties.unsubscribe()
 
