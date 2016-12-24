@@ -138,9 +138,17 @@ class ChromecastConnection(MqttChangesCallback):
         while True:
             item = self.processing_queue.get()
 
-            # TODO check connection before doing anything
-
             try:
+                requires_connection = not isinstance(item, CreateConnectionCommand) \
+                                      and not isinstance(item, DisconnectCommand) \
+                                      and not isinstance(item, CastReceivedStatus) \
+                                      and not isinstance(item, CastConnectionStatus) \
+                                      and not isinstance(item, CastMediaStatus)
+
+                if requires_connection and self.device is None:
+                    self.logger.info("no connection found but connection is required")
+                    self._worker_create_connection(item.ip_address)
+
                 if isinstance(item, CreateConnectionCommand):
                     self._worker_create_connection(item.ip_address)
                 elif isinstance(item, DisconnectCommand):
@@ -172,8 +180,8 @@ class ChromecastConnection(MqttChangesCallback):
                 elif isinstance(item, CastMediaStatus):
                     self._worker_cast_media_status(item.status)
             except:
-                pass
-                # TODO handle failed somehow
+                self.logger.exception("command %s failed" % item)
+                self.connection_callback.on_connection_failed(self, self.ip_address)
             finally:
                 self.processing_queue.task_done()
 
@@ -290,7 +298,7 @@ class ChromecastConnection(MqttChangesCallback):
                              % self.connection_failure_count)
 
             if self.connection_failure_count > 7:
-                self.logger.warn("failure counter too high, treating chromecast as dead")
+                self.logger.warning("failure counter too high, treating chromecast as dead")
                 self.connection_callback.on_connection_dead(self, self.ip_address)
 
     def _worker_cast_media_status(self, status):

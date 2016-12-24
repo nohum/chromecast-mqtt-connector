@@ -45,7 +45,7 @@ class EventHandler(DiscoveryCallback, MqttConnectionCallback, ChromecastConnecti
         self.known_devices = {}
 
         # processing queue used to add and remove devices
-        self.processing_queue = SortedPriorityQueue(maxsize=100)
+        self.processing_queue = SortedPriorityQueue()
 
         self.processing_worker = Thread(target=self._worker)
         self.processing_worker.daemon = True
