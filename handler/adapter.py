@@ -3,11 +3,34 @@ from pychromecast import get_chromecast, ChromecastConnectionError
 from pychromecast.socket_client import CONNECTION_STATUS_CONNECTED, CONNECTION_STATUS_FAILED, \
     CONNECTION_STATUS_DISCONNECTED
 from handler.properties import MqttPropertyHandler, MqttChangesCallback
+from collections import namedtuple
+from queue import Queue
+from threading import Thread
+
+CreateConnectionCommand = namedtuple("CreateConnectionCommand", ["ip_address"])
+DisconnectCommand = namedtuple("DisconnectCommand", [])
+VolumeMuteCommand = namedtuple("VolumeMuteCommand", ["muted"])
+VolumeLevelRelativeCommand = namedtuple("VolumeLevelRelativeCommand", ["value"])
+VolumeLevelAbsoluteCommand = namedtuple("VolumeLevelAbsoluteCommand", ["value"])
+PlayerPositionCommand = namedtuple("PlayerPositionCommand", ["position"])
+PlayerPlayStreamCommand = namedtuple("PlayerPositionCommand", ["content_url", "content_type"])
+PlayerPauseCommand = namedtuple("PlayerPauseCommand", [])
+PlayerResumeCommand = namedtuple("PlayerResumeCommand", [])
+PlayerStopCommand = namedtuple("PlayerStopCommand", [])
+PlayerSkipCommand = namedtuple("PlayerSkipCommand", [])
+PlayerRewindCommand = namedtuple("PlayerRewindCommand", [])
+
+CastReceivedStatus = namedtuple("CastReceivedStatus", ["status"])
+CastConnectionStatus = namedtuple("CastConnectionStatus", ["status"])
+CastMediaStatus = namedtuple("CastMediaStatus", ["status"])
 
 
 class ChromecastConnectionCallback:
 
     def on_connection_failed(self, chromecast_connection, ip_address):
+        pass
+
+    def on_connection_dead(self, chromecast_connection, ip_address):
         pass
 
 
@@ -23,33 +46,21 @@ class ChromecastConnection(MqttChangesCallback):
         self.connection_callback = connection_callback
         self.connection_failure_count = 0
 
-        try:
-            self.device = get_chromecast(ip=ip_address, tries=10)
-
-            if self.device is None:
-                self.logger.error("was not able to find chromecast %s" % self.ip_address)
-                self.connection_callback.on_connection_failed(self, self.ip_address)
-                return
-        except ChromecastConnectionError:
-            self.logger.error("had connection error while finding chromecast %s" % self.ip_address)
-            self.connection_callback.on_connection_failed(self, self.ip_address)
-
         self.mqtt_properties = MqttPropertyHandler(mqtt_connection, ip_address, self)
+        self.processing_queue = Queue(maxsize=100)
 
-        self.device.register_status_listener(self)
-        self.device.media_controller.register_status_listener(self)
-        self.device.register_launch_error_listener(self)
-        self.device.register_connection_listener(self)
+        self.processing_worker = Thread(target=self._worker)
+        self.processing_worker.daemon = True
+        self.processing_worker.start()
+
+        self.processing_queue.put(CreateConnectionCommand(ip_address))
 
     def unregister_device(self):
         """
         Called if this Chromecast device has disappeared and resources should be cleaned up.
         """
 
-        if self.device is not None:
-            self.device.disconnect()
-
-        self.mqtt_properties.write_connection_status(CONNECTION_STATUS_DISCONNECTED)
+        self.processing_queue.put(DisconnectCommand())
 
     def is_interesting_message(self, topic):
         """
@@ -70,15 +81,7 @@ class ChromecastConnection(MqttChangesCallback):
         PyChromecast cast status callback.
         """
 
-        # CastStatus(is_active_input=None, is_stand_by=None, volume_level=0.3499999940395355, volume_muted=False,
-        # app_id='CC1AD845', display_name='Default Media Receiver', namespaces=['urn:x-cast:com.google.cast.media'],
-        # session_id='xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxx', transport_id='web-0', status_text='Now Casting')
-        self.logger.info("received new cast status from chromecast %s" % self.ip_address)
-        self.mqtt_properties.write_cast_status(status.display_name, status.volume_level, status.volume_muted,
-                                               self.device.cast_type, self.device.name)
-        # dummy write as connection status callback does not work at the moment
-        self.mqtt_properties.write_connection_status(CONNECTION_STATUS_CONNECTED)
-        self.connection_failure_count = 0
+        self.processing_queue.put(CastReceivedStatus(status))
 
     def new_launch_error(self, launch_failure):
         """
@@ -92,6 +95,190 @@ class ChromecastConnection(MqttChangesCallback):
         PyChromecast connection status callback.
         """
 
+        self.processing_queue.put(CastConnectionStatus(status))
+
+    def new_media_status(self, status):
+        """
+        PyChromecast media status callback.
+        """
+
+        self.processing_queue.put(CastMediaStatus(status))
+
+    def on_volume_mute_requested(self, is_muted):
+        self.processing_queue.put(VolumeMuteCommand(is_muted))
+
+    def on_volume_level_relative_requested(self, relative_value):
+        self.processing_queue.put(VolumeLevelRelativeCommand(relative_value))
+
+    def on_volume_level_absolute_requested(self, absolute_value):
+        self.processing_queue.put(VolumeLevelAbsoluteCommand(absolute_value))
+
+    def on_player_position_requested(self, position):
+        self.processing_queue.put(PlayerPositionCommand(position))
+
+    def on_player_play_stream_requested(self, content_url, content_type):
+        self.processing_queue.put(PlayerPlayStreamCommand(content_url, content_type))
+
+    def on_player_pause_requested(self):
+        self.processing_queue.put(PlayerPauseCommand())
+
+    def on_player_resume_requested(self):
+        self.processing_queue.put(PlayerResumeCommand())
+
+    def on_player_stop_requested(self):
+        self.processing_queue.put(PlayerStopCommand())
+
+    def on_player_skip_requested(self):
+        self.processing_queue.put(PlayerSkipCommand())
+
+    def on_player_rewind_requested(self):
+        self.processing_queue.put(PlayerRewindCommand())
+
+    def _worker(self):
+        while True:
+            item = self.processing_queue.get()
+
+            # TODO check connection before doing anything
+
+            try:
+                if isinstance(item, CreateConnectionCommand):
+                    self._worker_create_connection(item.ip_address)
+                elif isinstance(item, DisconnectCommand):
+                    self._worker_disconnect()
+                elif isinstance(item, VolumeMuteCommand):
+                    self._worker_volume_muted(item.muted)
+                elif isinstance(item, VolumeLevelRelativeCommand):
+                    self._worker_volume_level_relative(item.value)
+                elif isinstance(item, VolumeLevelAbsoluteCommand):
+                    self._worker_volume_level_absolute(item.value)
+                elif isinstance(item, PlayerPositionCommand):
+                    self._worker_player_position(item.position)
+                elif isinstance(item, PlayerPlayStreamCommand):
+                    self._worker_player_play_stream(item.content_url, item.content_type)
+                elif isinstance(item, PlayerPauseCommand):
+                    self._worker_player_pause()
+                elif isinstance(item, PlayerResumeCommand):
+                    self._worker_player_resume()
+                elif isinstance(item, PlayerStopCommand):
+                    self._worker_player_stop()
+                elif isinstance(item, PlayerSkipCommand):
+                    self._worker_player_skip()
+                elif isinstance(item, PlayerRewindCommand):
+                    self._worker_player_rewind()
+                elif isinstance(item, CastReceivedStatus):
+                    self._worker_cast_received_status(item.status)
+                elif isinstance(item, CastConnectionStatus):
+                    self._worker_cast_connection_status(item.status)
+                elif isinstance(item, CastMediaStatus):
+                    self._worker_cast_media_status(item.status)
+            except:
+                pass
+                # TODO handle failed somehow
+            finally:
+                self.processing_queue.task_done()
+
+    def _worker_create_connection(self, ip_address):
+        try:
+            self.device = get_chromecast(ip=ip_address, tries=10)
+
+            if self.device is None:
+                self.logger.error("was not able to find chromecast %s" % self.ip_address)
+                self.connection_callback.on_connection_failed(self, self.ip_address)
+                return
+
+            self.device.register_status_listener(self)
+            self.device.media_controller.register_status_listener(self)
+            self.device.register_launch_error_listener(self)
+            self.device.register_connection_listener(self)
+        except ChromecastConnectionError:
+            self.logger.error("had connection error while finding chromecast %s" % self.ip_address)
+            self.connection_callback.on_connection_dead(self, self.ip_address)
+
+    def _worker_disconnect(self):
+        self.logger.info("disconnecting chromecast %s" % self.ip_address)
+
+        if self.device is not None:
+            self.device.disconnect()
+            self.device = None
+        else:
+            self.logger.warning("device is not available (at disconnection)")
+
+        self.mqtt_properties.write_connection_status(CONNECTION_STATUS_DISCONNECTED)
+
+    def _worker_volume_muted(self, is_muted):
+        self.logger.info("volume mute request, is muted = %s" % is_muted)
+
+        self.device.wait(0.5)
+        self.device.set_volume_muted(is_muted)
+
+    def _worker_volume_level_relative(self, relative_value):
+        self.logger.info("volume change relative request, value = %d" % relative_value)
+
+        self.device.wait(0.5)
+        self.device.set_volume(self.device.status.volume_level + (relative_value / 100))
+
+    def _worker_volume_level_absolute(self, absolute_value):
+        self.logger.info("volume change absolute request, value = %d" % absolute_value)
+
+        self.device.wait(0.5)
+        self.device.set_volume(absolute_value / 100)
+
+    def _worker_player_position(self, position):
+        self.logger.info("volume change position request, position = %d" % position)
+
+        self.device.wait(0.5)
+        self.device.media_controller.seek(position)
+
+    def _worker_player_play_stream(self, content_url, content_type):
+        self.logger.info("play stream request, url = %s, type = %s" % (content_url, content_type))
+
+        self.device.wait(0.5)
+        self.device.media_controller.play_media(content_url, content_type, autoplay=True)
+
+    def _worker_player_pause(self):
+        self.logger.info("pause request")
+
+        self.device.wait(0.5)
+        self.device.media_controller.pause()
+
+    def _worker_player_resume(self):
+        self.logger.info("resume request")
+
+        self.device.wait(0.5)
+        self.device.media_controller.play()
+
+    def _worker_player_stop(self):
+        self.logger.info("stop request")
+
+        self.device.wait(0.5)
+        self.device.media_controller.stop()
+
+    def _worker_player_skip(self):
+        self.logger.info("skip request")
+
+        self.device.wait(0.5)
+        self.device.media_controller.seek(int(self.device.media_controller.status.duration) - 1)
+
+    def _worker_player_rewind(self):
+        self.logger.info("rewind request")
+
+        self.device.wait(0.5)
+        self.device.media_controller.rewind()
+
+    # ##################################################################################
+
+    def _worker_cast_received_status(self, status):
+        # CastStatus(is_active_input=None, is_stand_by=None, volume_level=0.3499999940395355, volume_muted=False,
+        # app_id='CC1AD845', display_name='Default Media Receiver', namespaces=['urn:x-cast:com.google.cast.media'],
+        # session_id='xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxx', transport_id='web-0', status_text='Now Casting')
+        self.logger.info("received new cast status from chromecast %s" % self.ip_address)
+        self.mqtt_properties.write_cast_status(status.display_name, status.volume_level, status.volume_muted,
+                                               self.device.cast_type, self.device.name)
+        # dummy write as connection status callback does not work at the moment
+        self.mqtt_properties.write_connection_status(CONNECTION_STATUS_CONNECTED)
+        self.connection_failure_count = 0
+
+    def _worker_cast_connection_status(self, status):
         self.logger.info("received new connection status from chromecast %s: %s" % (self.ip_address, status))
         self.mqtt_properties.write_connection_status(status.status)
 
@@ -103,14 +290,10 @@ class ChromecastConnection(MqttChangesCallback):
                              % self.connection_failure_count)
 
             if self.connection_failure_count > 7:
-                self.logger.warn("failure counter too high, treating chromecast as finally failed")
-                self.connection_callback.on_connection_failed(self, self.ip_address)
+                self.logger.warn("failure counter too high, treating chromecast as dead")
+                self.connection_callback.on_connection_dead(self, self.ip_address)
 
-    def new_media_status(self, status):
-        """
-        PyChromecast media status callback.
-        """
-
+    def _worker_cast_media_status(self, status):
         #  <MediaStatus {'media_metadata': {}, 'content_id': 'http://some.url.com/', 'player_state': 'PLAYING',
         # 'episode': None, 'media_custom_data': {}, 'supports_stream_mute': True, 'track': None,
         # 'supports_stream_volume': True, 'volume_level': 1, 'album_name': None, 'idle_reason': None,
@@ -131,63 +314,3 @@ class ChromecastConnection(MqttChangesCallback):
         self.mqtt_properties.write_player_status(status.player_state, status.current_time, status.duration)
         self.mqtt_properties.write_media_status(status.title, status.album_name, status.artist, status.album_artist,
                                                 status.track, image_filtered, status.content_type, status.content_id)
-
-    def on_volume_mute_requested(self, is_muted):
-        self.logger.info("volume mute request, is muted = %s" % is_muted)
-
-        self.device.wait(0.5)
-        self.device.set_volume_muted(is_muted)
-
-    def on_volume_level_relative_requested(self, relative_value):
-        self.logger.info("volume change relative request, value = %d" % relative_value)
-
-        self.device.wait(0.5)
-        self.device.set_volume(self.device.status.volume_level + (relative_value / 100))
-
-    def on_volume_level_absolute_requested(self, absolute_value):
-        self.logger.info("volume change absolute request, value = %d" % absolute_value)
-
-        self.device.wait(0.5)
-        self.device.set_volume(absolute_value / 100)
-
-    def on_player_position_requested(self, position):
-        self.logger.info("volume change position request, position = %d" % position)
-
-        self.device.wait(0.5)
-        self.device.media_controller.seek(position)
-
-    def on_player_play_stream_requested(self, content_url, content_type):
-        self.logger.info("play stream request, url = %s, type = %s" % (content_url, content_type))
-
-        self.device.wait(0.5)
-        self.device.media_controller.play_media(content_url, content_type, autoplay=True)
-
-    def on_player_pause_requested(self):
-        self.logger.info("pause request")
-
-        self.device.wait(0.5)
-        self.device.media_controller.pause()
-
-    def on_player_resume_requested(self):
-        self.logger.info("resume request")
-
-        self.device.wait(0.5)
-        self.device.media_controller.play()
-
-    def on_player_stop_requested(self):
-        self.logger.info("stop request")
-
-        self.device.wait(0.5)
-        self.device.media_controller.stop()
-
-    def on_player_skip_requested(self):
-        self.logger.info("skip request")
-
-        self.device.wait(0.5)
-        self.device.media_controller.seek(int(self.device.media_controller.status.duration) - 1)
-
-    def on_player_rewind_requested(self):
-        self.logger.info("rewind request")
-
-        self.device.wait(0.5)
-        self.device.media_controller.rewind()

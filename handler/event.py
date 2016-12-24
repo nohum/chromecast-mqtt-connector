@@ -12,6 +12,7 @@ MqttMessage = namedtuple("MqttMessage", ["topic", "payload"])
 DeviceAppeared = namedtuple("DeviceAppeared", ["ip_address"])
 DeviceDisappeared = namedtuple("DeviceDisappeared", ["ip_address"])
 DeviceConnectionFailure = namedtuple("DeviceConnectionFailure", ["ip_address", "connection"])
+DeviceConnectionDead = namedtuple("DeviceConnectionDead", ["ip_address", "connection"])
 
 
 class EventHandler(DiscoveryCallback, MqttConnectionCallback, ChromecastConnectionCallback):
@@ -35,6 +36,7 @@ class EventHandler(DiscoveryCallback, MqttConnectionCallback, ChromecastConnecti
     def on_mqtt_connected(self, client):
         self.logger.debug("mqtt connected callback has been invoked")
         self.mqtt_client = client
+        # insert + as identifier so that every command to every identifier (= ip address) will be recognized
         self.mqtt_client.subscribe(TOPIC_COMMAND_VOLUME_LEVEL % "+")
         self.mqtt_client.subscribe(TOPIC_COMMAND_VOLUME_MUTED % "+")
         self.mqtt_client.subscribe(TOPIC_COMMAND_PLAYER_POSITION % "+")
@@ -54,6 +56,10 @@ class EventHandler(DiscoveryCallback, MqttConnectionCallback, ChromecastConnecti
     def on_connection_failed(self, chromecast_connection, ip_address):
         self.processing_queue.put(DeviceConnectionFailure(ip_address, chromecast_connection))
 
+    def on_connection_dead(self, chromecast_connection, ip_address):
+        # TODO this should be added at the front of the queue
+        self.processing_queue.put(DeviceConnectionDead(ip_address, chromecast_connection))
+
     def _worker(self):
         while True:
             item = self.processing_queue.get()
@@ -67,6 +73,8 @@ class EventHandler(DiscoveryCallback, MqttConnectionCallback, ChromecastConnecti
                     self._worker_chromecast_disappeared(item.ip_address)
                 elif isinstance(item, DeviceConnectionFailure):
                     self._worker_chromecast_connection_failed(item.ip_address, item.connection)
+                elif isinstance(item, DeviceConnectionDead):
+                    self._worker_chromecast_connection_dead(item.ip_address, item.connection)
             finally:
                 self.processing_queue.task_done()
 
@@ -77,7 +85,18 @@ class EventHandler(DiscoveryCallback, MqttConnectionCallback, ChromecastConnecti
                 device.handle_message(topic, payload)
                 return
 
-        self.logger.warn("received change for topic %s, but was not handled" % topic)
+        self.logger.warning("received change for topic %s, but was not handled - creating new device" % topic)
+
+        # topic is e.g. "chromecast/%s/command/volume_level"
+        parts = topic.split("/")
+        if len(parts) > 2:
+            ip_address = parts[1]
+            device = ChromecastConnection(ip_address, self.mqtt_client, self)
+
+            self.known_devices[ip_address] = device
+            self.logger.info("added device %s after receiving topic addressing it" % ip_address)
+
+            device.handle_message(topic, payload)
 
     def _worker_chromecast_appeared(self, ip_address):
         if ip_address in self.known_devices:
@@ -98,9 +117,8 @@ class EventHandler(DiscoveryCallback, MqttConnectionCallback, ChromecastConnecti
         device.unregister_device()
 
     def _worker_chromecast_connection_failed(self, ip_address, connection):
-        self.logger.debug("connection to device %s failed to often, creating new device" % ip_address)
+        self.logger.warning("connection to device %s failed too often" % ip_address)
 
-        connection.unregister_device()
-
-        self.known_devices.pop(ip_address)  # pop device, if known
-        self.known_devices[ip_address] = ChromecastConnection(ip_address, self.mqtt_client, self)
+    def _worker_chromecast_connection_dead(self, ip_address, connection):
+        self.logger.error("connection to device %s is dead, removing" % ip_address)
+        self.known_devices.pop(ip_address)
