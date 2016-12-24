@@ -76,8 +76,6 @@ class MqttPropertyHandler:
         self.topic_filter = mqtt_topic_filter
         self.changes_callback = changes_callback
         self.write_filter = {}
-        
-        self._initialize_topics()
 
     def is_topic_filter_matching(self, topic):
         """
@@ -87,18 +85,6 @@ class MqttPropertyHandler:
             return topic.split("/")[1] == self.topic_filter
         except IndexError:
             return False
-
-    def _initialize_topics(self):
-        self.mqtt.subscribe(TOPIC_COMMAND_VOLUME_LEVEL % self.topic_filter)
-        self.mqtt.subscribe(TOPIC_COMMAND_VOLUME_MUTED % self.topic_filter)
-        self.mqtt.subscribe(TOPIC_COMMAND_PLAYER_POSITION % self.topic_filter)
-        self.mqtt.subscribe(TOPIC_COMMAND_PLAYER_STATE % self.topic_filter)
-
-    def unsubscribe(self):
-        self.mqtt.unsubscribe(TOPIC_COMMAND_VOLUME_LEVEL % self.topic_filter)
-        self.mqtt.unsubscribe(TOPIC_COMMAND_VOLUME_MUTED % self.topic_filter)
-        self.mqtt.unsubscribe(TOPIC_COMMAND_PLAYER_POSITION % self.topic_filter)
-        self.mqtt.unsubscribe(TOPIC_COMMAND_PLAYER_STATE % self.topic_filter)
 
     def _write(self, topic, value):
         # noinspection PyBroadException

@@ -50,7 +50,6 @@ class ChromecastConnection(MqttChangesCallback):
             self.device.disconnect()
 
         self.mqtt_properties.write_connection_status(CONNECTION_STATUS_DISCONNECTED)
-        self.mqtt_properties.unsubscribe()
 
     def is_interesting_message(self, topic):
         """

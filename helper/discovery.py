@@ -6,6 +6,7 @@ from zeroconf import ServiceBrowser, Zeroconf
 
 GOOGLE_CAST_IDENTIFIER = "_googlecast._tcp.local."
 
+
 class DiscoveryCallback:
 
     def on_chromecast_appeared(self, device_name, model_name, ip_address, port):
@@ -13,6 +14,7 @@ class DiscoveryCallback:
 
     def on_chromecast_disappeared(self, ip_address):
         pass
+
 
 class ChromecastDiscovery(Thread):
     """

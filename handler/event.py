@@ -1,4 +1,6 @@
 from handler.adapter import ChromecastConnection, ChromecastConnectionCallback
+from handler.properties import TOPIC_COMMAND_VOLUME_LEVEL, TOPIC_COMMAND_VOLUME_MUTED, TOPIC_COMMAND_PLAYER_POSITION, \
+    TOPIC_COMMAND_PLAYER_STATE
 from helper.discovery import DiscoveryCallback
 from helper.mqtt import MqttConnectionCallback
 import logging
@@ -10,6 +12,7 @@ MqttMessage = namedtuple("MqttMessage", ["topic", "payload"])
 DeviceAppeared = namedtuple("DeviceAppeared", ["ip_address"])
 DeviceDisappeared = namedtuple("DeviceDisappeared", ["ip_address"])
 DeviceConnectionFailure = namedtuple("DeviceConnectionFailure", ["ip_address", "connection"])
+
 
 class EventHandler(DiscoveryCallback, MqttConnectionCallback, ChromecastConnectionCallback):
     """
@@ -32,6 +35,12 @@ class EventHandler(DiscoveryCallback, MqttConnectionCallback, ChromecastConnecti
     def on_mqtt_connected(self, client):
         self.logger.debug("mqtt connected callback has been invoked")
         self.mqtt_client = client
+        self.mqtt_client.subscribe(TOPIC_COMMAND_VOLUME_LEVEL % "+")
+        self.mqtt_client.subscribe(TOPIC_COMMAND_VOLUME_MUTED % "+")
+        self.mqtt_client.subscribe(TOPIC_COMMAND_PLAYER_POSITION % "+")
+        self.mqtt_client.subscribe(TOPIC_COMMAND_PLAYER_STATE % "+")
+
+        self.logger.debug("mqtt topics have been subscribed")
 
     def on_mqtt_message_received(self, topic, payload):
         self.processing_queue.put(MqttMessage(topic, payload))
