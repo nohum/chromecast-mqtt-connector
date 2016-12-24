@@ -5,7 +5,7 @@ from helper.discovery import DiscoveryCallback
 from helper.mqtt import MqttConnectionCallback
 import logging
 from collections import namedtuple
-from queue import Queue
+from queue import PriorityQueue
 from threading import Thread
 
 MqttMessage = namedtuple("MqttMessage", ["topic", "payload"])
@@ -13,6 +13,24 @@ DeviceAppeared = namedtuple("DeviceAppeared", ["ip_address"])
 DeviceDisappeared = namedtuple("DeviceDisappeared", ["ip_address"])
 DeviceConnectionFailure = namedtuple("DeviceConnectionFailure", ["ip_address", "connection"])
 DeviceConnectionDead = namedtuple("DeviceConnectionDead", ["ip_address", "connection"])
+
+
+class SortedPriorityQueue(PriorityQueue):
+    """
+    See: http://stackoverflow.com/a/9289760
+    """
+
+    def __init__(self):
+        PriorityQueue.__init__(self)
+        self.counter = 0
+
+    def put(self, item, priority):
+        PriorityQueue.put(self, (priority, self.counter, item))
+        self.counter += 1
+
+    def get(self, *args, **kwargs):
+        _, _, item = PriorityQueue.get(self, *args, **kwargs)
+        return item
 
 
 class EventHandler(DiscoveryCallback, MqttConnectionCallback, ChromecastConnectionCallback):
@@ -27,7 +45,7 @@ class EventHandler(DiscoveryCallback, MqttConnectionCallback, ChromecastConnecti
         self.known_devices = {}
 
         # processing queue used to add and remove devices
-        self.processing_queue = Queue(maxsize=100)
+        self.processing_queue = SortedPriorityQueue(maxsize=100)
 
         self.processing_worker = Thread(target=self._worker)
         self.processing_worker.daemon = True
@@ -45,20 +63,19 @@ class EventHandler(DiscoveryCallback, MqttConnectionCallback, ChromecastConnecti
         self.logger.debug("mqtt topics have been subscribed")
 
     def on_mqtt_message_received(self, topic, payload):
-        self.processing_queue.put(MqttMessage(topic, payload))
+        self.processing_queue.put(MqttMessage(topic, payload), 2)
 
     def on_chromecast_appeared(self, device_name, model_name, ip_address, port):
-        self.processing_queue.put(DeviceAppeared(ip_address))
+        self.processing_queue.put(DeviceAppeared(ip_address), 0)
 
     def on_chromecast_disappeared(self, ip_address):
-        self.processing_queue.put(DeviceDisappeared(ip_address))
+        self.processing_queue.put(DeviceDisappeared(ip_address), 0)
 
     def on_connection_failed(self, chromecast_connection, ip_address):
-        self.processing_queue.put(DeviceConnectionFailure(ip_address, chromecast_connection))
+        self.processing_queue.put(DeviceConnectionFailure(ip_address, chromecast_connection), 2)
 
     def on_connection_dead(self, chromecast_connection, ip_address):
-        # TODO this should be added at the front of the queue
-        self.processing_queue.put(DeviceConnectionDead(ip_address, chromecast_connection))
+        self.processing_queue.put(DeviceConnectionDead(ip_address, chromecast_connection), 0)
 
     def _worker(self):
         while True:
