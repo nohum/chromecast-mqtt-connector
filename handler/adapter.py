@@ -1,5 +1,5 @@
 import logging
-from pychromecast import get_chromecast, ChromecastConnectionError
+from pychromecast import get_chromecast, ChromecastConnectionError, IDLE_APP_ID
 from pychromecast.socket_client import CONNECTION_STATUS_CONNECTED, CONNECTION_STATUS_FAILED, \
     CONNECTION_STATUS_DISCONNECTED
 from handler.properties import MqttPropertyHandler, MqttChangesCallback
@@ -142,8 +142,6 @@ class ChromecastConnection(MqttChangesCallback):
     def _worker(self):
         while True:
             item = self.processing_queue.get()
-
-            self.logger.debug("processing item: %s" % item)
 
             try:
                 requires_connection = not isinstance(item, CreateConnectionCommand) \
@@ -303,6 +301,10 @@ class ChromecastConnection(MqttChangesCallback):
         # dummy write as connection status callback does not work at the moment
         self.mqtt_properties.write_connection_status(CONNECTION_STATUS_CONNECTED)
         self.connection_failure_count = 0
+
+        # reset player state if necessary
+        if status.app_id is None or status.app_id == IDLE_APP_ID:  # no app active = idle
+            self.mqtt_properties.write_player_status("IDLE", "", "")
 
     def _worker_cast_connection_status(self, status):
         self.logger.info("received new connection status from chromecast %s: %s" % (self.ip_address, status.status))
