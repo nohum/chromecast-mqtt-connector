@@ -125,13 +125,18 @@ class EventHandler(DiscoveryCallback, MqttConnectionCallback, ChromecastConnecti
 
     def _worker_chromecast_disappeared(self, ip_address):
         if ip_address not in self.known_devices:
-            self.logger.warn("device %s not known" % ip_address)
+            self.logger.warning("device %s not known" % ip_address)
             return
 
-        self.logger.debug("de-registering device %s" % ip_address)
+        device = self.known_devices[ip_address]
 
-        device = self.known_devices.pop(ip_address)
-        device.unregister_device()
+        if device.is_connected():
+            self.logger.warning("device %s is still connected and not removed" % ip_address)
+        else:
+            self.logger.debug("de-registering device %s" % ip_address)
+
+            self.known_devices.pop(ip_address)  # ignore result, we already have the device
+            device.unregister_device()
 
     def _worker_chromecast_connection_failed(self, ip_address, connection):
         self.logger.warning("connection to device %s failed too often" % ip_address)

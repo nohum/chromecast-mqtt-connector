@@ -56,6 +56,10 @@ class ChromecastConnection(MqttChangesCallback):
 
         self.processing_queue.put(CreateConnectionCommand(ip_address))
 
+    def is_connected(self):
+        # TODO thread sync
+        return self.device_connected
+
     def unregister_device(self):
         """
         Called if this Chromecast device has disappeared and resources should be cleaned up.
@@ -202,7 +206,7 @@ class ChromecastConnection(MqttChangesCallback):
             self.device.register_launch_error_listener(self)
             self.device.register_connection_listener(self)
 
-            self.device_connected = True # alibi action
+            self.device_connected = True  # alibi action
         except ChromecastConnectionError:
             self.logger.error("had connection error while finding chromecast %s" % self.ip_address)
 
@@ -310,7 +314,7 @@ class ChromecastConnection(MqttChangesCallback):
             self.connection_failure_count = 0
         elif status.status == CONNECTION_STATUS_FAILED:
             self.connection_failure_count += 1
-            self.logger.warn("received failure from connection, current failure counter: %d"
+            self.logger.warning("received failure from connection, current failure counter: %d"
                              % self.connection_failure_count)
 
             if self.connection_failure_count > 7:
