@@ -98,7 +98,9 @@ class EventHandler(DiscoveryCallback, MqttConnectionCallback, ChromecastConnecti
     def _worker_mqtt_message_received(self, topic, payload):
         for ip in self.known_devices:
             device = self.known_devices[ip]
-            if device.is_interesting_message(topic):
+            if device.is_interesting_message(topic) and device.is_connected():
+                self.logger.debug("found device to handle mqtt message")
+
                 device.handle_message(topic, payload)
                 return
 
@@ -117,7 +119,7 @@ class EventHandler(DiscoveryCallback, MqttConnectionCallback, ChromecastConnecti
 
     def _worker_chromecast_appeared(self, ip_address):
         if ip_address in self.known_devices:
-            self.logger.warn("device %s already known" % ip_address)
+            self.logger.warning("device %s already known" % ip_address)
             return
 
         self.known_devices[ip_address] = ChromecastConnection(ip_address, self.mqtt_client, self)
