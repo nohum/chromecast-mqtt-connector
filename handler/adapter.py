@@ -188,6 +188,7 @@ class ChromecastConnection(MqttChangesCallback):
                 self.logger.exception("command %s failed" % item)
                 self.connection_callback.on_connection_failed(self, self.ip_address)
             finally:
+                self.logger.debug("command finished")
                 self.processing_queue.task_done()
 
     def _worker_create_connection(self, ip_address):
@@ -227,61 +228,51 @@ class ChromecastConnection(MqttChangesCallback):
     def _worker_volume_muted(self, is_muted):
         self.logger.info("volume mute request, is muted = %s" % is_muted)
 
-        self.device.wait(0.5)
         self.device.set_volume_muted(is_muted)
 
     def _worker_volume_level_relative(self, relative_value):
         self.logger.info("volume change relative request, value = %d" % relative_value)
 
-        self.device.wait(0.5)
         self.device.set_volume(self.device.status.volume_level + (relative_value / 100))
 
     def _worker_volume_level_absolute(self, absolute_value):
         self.logger.info("volume change absolute request, value = %d" % absolute_value)
 
-        self.device.wait(0.5)
         self.device.set_volume(absolute_value / 100)
 
     def _worker_player_position(self, position):
         self.logger.info("volume change position request, position = %d" % position)
 
-        self.device.wait(0.5)
         self.device.media_controller.seek(position)
 
     def _worker_player_play_stream(self, content_url, content_type):
         self.logger.info("play stream request, url = %s, type = %s" % (content_url, content_type))
 
-        self.device.wait(0.5)
         self.device.media_controller.play_media(content_url, content_type, autoplay=True)
 
     def _worker_player_pause(self):
         self.logger.info("pause request")
 
-        self.device.wait(0.5)
         self.device.media_controller.pause()
 
     def _worker_player_resume(self):
         self.logger.info("resume request")
 
-        self.device.wait(0.5)
         self.device.media_controller.play()
 
     def _worker_player_stop(self):
         self.logger.info("stop request")
 
-        self.device.wait(0.5)
         self.device.media_controller.stop()
 
     def _worker_player_skip(self):
         self.logger.info("skip request")
 
-        self.device.wait(0.5)
         self.device.media_controller.seek(int(self.device.media_controller.status.duration) - 1)
 
     def _worker_player_rewind(self):
         self.logger.info("rewind request")
 
-        self.device.wait(0.5)
         self.device.media_controller.rewind()
 
     # ##################################################################################

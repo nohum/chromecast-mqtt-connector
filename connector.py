@@ -9,7 +9,7 @@ from time import sleep
 from helper.mqtt import MqttConnection
 
 logging.basicConfig(level=logging.DEBUG)
-logging.getLogger("pychromecast").setLevel(logging.INFO)
+logging.getLogger("pychromecast").setLevel(logging.DEBUG)
 
 logger = logging.getLogger(__name__)
 
