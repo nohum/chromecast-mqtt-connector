@@ -10,6 +10,7 @@ from helper.mqtt import MqttConnection
 
 logging.basicConfig(level=logging.DEBUG)
 logging.getLogger("pychromecast").setLevel(logging.DEBUG)
+logging.getLogger("pychromecast.socket_client").setLevel(logging.INFO)
 
 logger = logging.getLogger(__name__)
 
