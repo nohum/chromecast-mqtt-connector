@@ -159,6 +159,9 @@ class ChromecastConnection(MqttChangesCallback):
                     self.logger.info("no connection found but connection is required")
                     self._worker_create_connection(self.ip_address)
 
+                    if not self.device_connected:
+                        self.logger.warning("was not able to connect to device")
+
                 if isinstance(item, CreateConnectionCommand):
                     self._worker_create_connection(item.ip_address)
                 elif isinstance(item, DisconnectCommand):
@@ -192,7 +195,7 @@ class ChromecastConnection(MqttChangesCallback):
             except:
                 self.logger.exception("command %s failed" % (item,))
 
-                # TODO post connection status error?
+                self.mqtt_properties.write_connection_status(CONNECTION_STATUS_ERROR)
                 self.connection_callback.on_connection_failed(self, self.ip_address)
             finally:
                 self.logger.debug("command %s finished" % (item,))
@@ -201,7 +204,7 @@ class ChromecastConnection(MqttChangesCallback):
     def _worker_create_connection(self, ip_address):
         try:
             self.mqtt_properties.write_connection_status(CONNECTION_STATUS_WAITING_FOR_DEVICE)
-            self.device = get_chromecast(ip=ip_address, tries=15)
+            self.device = get_chromecast(ip=ip_address, tries=20)
 
             if self.device is None:
                 self.logger.error("was not able to find chromecast %s" % self.ip_address)
