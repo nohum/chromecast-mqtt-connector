@@ -54,7 +54,8 @@ Change mute state: publish `0` or `1` to `chromecast/192.168.0.1/command/volume_
 
 Play something: Publish a json array with two elements (content url and content type) to
 `chromecast/192.168.0.1/command/player_state`, e.g. `["http://your.stream.url.here", "audio/mpeg"]`.
-
+You can also just publish a URL to `player_state` (just as string, not as json array, e.g.
+`http://your.stream.url.here`), the application then tries to guess the required MIME type.
 
 For other player controls, simply publish e.g. `RESUME`, `PAUSE`, `STOP`, `SKIP` or `REWIND` to
-`chromecast/192.168.0.1/command/player_state`.
+`chromecast/192.168.0.1/command/player_state`. Attention: This is case-sensitive!

@@ -1,6 +1,6 @@
 import logging
 from json import loads
-
+import mimetypes
 
 # only used for publishing
 TOPIC_FRIENDLY_NAME = "chromecast/%s/friendly_name"
@@ -32,11 +32,12 @@ STATE_REQUEST_PAUSE = "PAUSE"
 STATE_REQUEST_STOP = "STOP"
 STATE_REQUEST_SKIP = "SKIP"
 STATE_REQUEST_REWIND = "REWIND"
+
+
 # play stream has another syntax, not listed here therefore
 
 
 class MqttChangesCallback:
-
     def on_volume_mute_requested(self, is_muted):
         pass
 
@@ -69,7 +70,6 @@ class MqttChangesCallback:
 
 
 class MqttPropertyHandler:
-
     def __init__(self, mqtt_connection, mqtt_topic_filter, changes_callback):
         self.logger = logging.getLogger("mqtt")
         self.mqtt = mqtt_connection
@@ -222,15 +222,24 @@ class MqttPropertyHandler:
             if len(payload) == 0:
                 return
 
-            if payload[0] != "[":
-                return
-
             # noinspection PyBroadException
             try:
-                data = loads(payload)
-                if not isinstance(data, list) or len(data) != 2:
-                    raise AssertionError("data must be array and must possess two elements (url, content type)")
+                if payload[0] != "[":
+                    url = payload
+                    mime_data = mimetypes.guess_type(url, strict=False)
+                    found_mime_type = None
+                    if mime_data is not None:
+                        found_mime_type = mime_data[0]
 
-                self.changes_callback.on_player_play_stream_requested(data[0], data[1])
+                    if found_mime_type is None:
+                        self.logger.warning("no mime type found")
+
+                    self.changes_callback.on_player_play_stream_requested(url, found_mime_type)
+                else:
+                    data = loads(payload)
+                    if not isinstance(data, list) or len(data) != 2:
+                        raise AssertionError("data must be array and must possess two elements (url, content type)")
+
+                    self.changes_callback.on_player_play_stream_requested(data[0], data[1])
             except Exception:
                 self.logger.exception("failed decoding requested play stream data: %s" % payload)
