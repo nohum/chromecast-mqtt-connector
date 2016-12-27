@@ -174,7 +174,7 @@ class MqttPropertyHandler:
         if len(payload) == 0:
             return
 
-        is_relative = payload[0] == "-" or payload[1] == "+"
+        is_relative = payload[0] == "-" or payload[0] == "+"
         # noinspection PyBroadException
         try:
             value = int(payload)

@@ -190,12 +190,12 @@ class ChromecastConnection(MqttChangesCallback):
                 elif isinstance(item, CastMediaStatus):
                     self._worker_cast_media_status(item.status)
             except:
-                self.logger.exception("command %s failed" % (item, ))
+                self.logger.exception("command %s failed" % (item,))
 
                 # TODO post connection status error?
                 self.connection_callback.on_connection_failed(self, self.ip_address)
             finally:
-                self.logger.debug("command %s finished" % (item, ))
+                self.logger.debug("command %s finished" % (item,))
                 self.processing_queue.task_done()
 
     def _worker_create_connection(self, ip_address):

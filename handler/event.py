@@ -92,6 +92,8 @@ class EventHandler(DiscoveryCallback, MqttConnectionCallback, ChromecastConnecti
                     self._worker_chromecast_connection_failed(item.ip_address, item.connection)
                 elif isinstance(item, DeviceConnectionDead):
                     self._worker_chromecast_connection_dead(item.ip_address, item.connection)
+            except:
+                self.logger.exception("event %s failed" % (item,))
             finally:
                 self.processing_queue.task_done()
 
