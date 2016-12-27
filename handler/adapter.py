@@ -325,7 +325,7 @@ class ChromecastConnection(MqttChangesCallback):
 
         # reset player state if necessary
         if status.app_id is None or status.app_id == IDLE_APP_ID:  # no app active = idle
-            self.mqtt_properties.write_player_status(MEDIA_PLAYER_STATE_IDLE, "", "")
+            self.mqtt_properties.write_player_status(MEDIA_PLAYER_STATE_IDLE, None, None)
 
     def _worker_cast_connection_status(self, status):
         self.logger.info("received new connection status from chromecast %s: %s" % (self.ip_address, status.status))
