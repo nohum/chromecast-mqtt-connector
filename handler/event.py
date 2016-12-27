@@ -98,7 +98,7 @@ class EventHandler(DiscoveryCallback, MqttConnectionCallback, ChromecastConnecti
     def _worker_mqtt_message_received(self, topic, payload):
         for ip in self.known_devices:
             device = self.known_devices[ip]
-            if device.is_interesting_message(topic) and device.is_connected():
+            if device.is_interesting_message(topic):
                 self.logger.debug("found device to handle mqtt message")
 
                 device.handle_message(topic, payload)
