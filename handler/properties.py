@@ -182,11 +182,6 @@ class MqttPropertyHandler:
             self.logger.exception("failed decoding requested volume level")
             return
 
-        if value > 100:
-            value = 100
-        elif value < 0:
-            value = 0
-
         if is_relative:
             self.changes_callback.on_volume_level_relative_requested(value)
         else:
