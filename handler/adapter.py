@@ -18,7 +18,7 @@ VolumeMuteCommand = namedtuple("VolumeMuteCommand", ["muted"])
 VolumeLevelRelativeCommand = namedtuple("VolumeLevelRelativeCommand", ["value"])
 VolumeLevelAbsoluteCommand = namedtuple("VolumeLevelAbsoluteCommand", ["value"])
 PlayerPositionCommand = namedtuple("PlayerPositionCommand", ["position"])
-PlayerPlayStreamCommand = namedtuple("PlayerPositionCommand", ["content_url", "content_type"])
+PlayerPlayStreamCommand = namedtuple("PlayerPlayStreamCommand", ["content_url", "content_type"])
 PlayerPauseCommand = namedtuple("PlayerPauseCommand", [])
 PlayerResumeCommand = namedtuple("PlayerResumeCommand", [])
 PlayerStopCommand = namedtuple("PlayerStopCommand", [])
@@ -40,7 +40,9 @@ class ChromecastConnectionCallback:
 
 
 class ConnectionUnavailableException(Exception):
-    """Exception if connection to Chromecast is not available but required"""
+    """
+    Exception if connection to Chromecast is not available but required
+    """
     pass
 
 
@@ -151,6 +153,7 @@ class ChromecastConnection(MqttChangesCallback):
 
     def _worker(self):
         while True:
+            # TODO we should actually only get commands from the command queue if we are connected
             item = self.processing_queue.get()
 
             # noinspection PyBroadException
@@ -163,8 +166,7 @@ class ChromecastConnection(MqttChangesCallback):
 
                 if requires_connection and not self.device_connected:
                     self.logger.info("no connection found but connection is required")
-                    # there is some command requiring a connection, so we'll do an endless retry
-                    self._worker_create_connection(self.ip_address)
+                    self._internal_create_connection(self.ip_address)
 
                     if not self.device_connected:
                         self.logger.error("was not able to connect to device for command %s" % (item,))
@@ -204,8 +206,6 @@ class ChromecastConnection(MqttChangesCallback):
                 self.logger.exception("command %s failed" % (item,))
 
                 if isinstance(error, ConnectionUnavailableException):
-                    # actually, CONNECTION_STATUS_NOT_FOUND is also set by _worker_create_connection, but be verbose
-                    # about that
                     self.mqtt_properties.write_connection_status(CONNECTION_STATUS_NOT_FOUND)
                 else:
                     self.mqtt_properties.write_connection_status(CONNECTION_STATUS_ERROR)
@@ -215,17 +215,14 @@ class ChromecastConnection(MqttChangesCallback):
                 self.logger.debug("command %s finished" % (item,))
                 self.processing_queue.task_done()
 
-    def _worker_create_connection(self, ip_address):
+    def _internal_create_connection(self, ip_address):
         try:
             self.mqtt_properties.write_connection_status(CONNECTION_STATUS_WAITING_FOR_DEVICE)
             self.device = get_chromecast(ip=ip_address, tries=15)
 
             if self.device is None:
                 self.logger.error("was not able to find chromecast %s" % self.ip_address)
-
-                self.mqtt_properties.write_connection_status(CONNECTION_STATUS_NOT_FOUND)
-                self.connection_callback.on_connection_failed(self, self.ip_address)
-                return
+                raise ConnectionUnavailableException()
 
             self.device.register_status_listener(self)
             self.device.media_controller.register_status_listener(self)
@@ -234,11 +231,16 @@ class ChromecastConnection(MqttChangesCallback):
 
             self.device_connected = True  # alibi action
         except ChromecastConnectionError:
-            self.logger.error("had connection error while finding chromecast %s" % self.ip_address)
+            self.logger.exception("had connection error while finding chromecast %s" % self.ip_address)
 
             self.device_connected = False
+
+    def _worker_create_connection(self, ip_address):
+        # uncaught exceptions bubble to the try-except handler of the worker thread
+        self._internal_create_connection(ip_address)
+
+        if not self.device_connected:
             self.mqtt_properties.write_connection_status(CONNECTION_STATUS_ERROR)
-            self.connection_callback.on_connection_dead(self, self.ip_address)
 
     def _worker_disconnect(self):
         self.logger.info("disconnecting chromecast %s" % self.ip_address)
@@ -331,8 +333,7 @@ class ChromecastConnection(MqttChangesCallback):
             self.logger.warning("received empty status")
             return
 
-        self.mqtt_properties.write_cast_status(status.display_name, status.volume_level, status.volume_muted,
-                                               self.device.cast_type, self.device.name)
+        self.mqtt_properties.write_cast_status(status.display_name, status.volume_level, status.volume_muted)
         # dummy write as connection status callback does not work at the moment
         self.mqtt_properties.write_connection_status(CONNECTION_STATUS_CONNECTED)
         self.connection_failure_count = 0
@@ -349,10 +350,12 @@ class ChromecastConnection(MqttChangesCallback):
 
         if status.status == CONNECTION_STATUS_CONNECTED:
             self.connection_failure_count = 0
+
+            self.mqtt_properties.write_cast_data(self.device.cast_type, self.device.name)
         elif status.status == CONNECTION_STATUS_FAILED:
             self.connection_failure_count += 1
-            self.logger.warning("received failure from connection, current failure counter: %d"
-                             % self.connection_failure_count)
+            self.logger.warning("received failure from connection, current failure counter: %d" %
+                                self.connection_failure_count)
 
             if self.connection_failure_count > 7:
                 self.logger.warning("failure counter too high, treating chromecast as dead")

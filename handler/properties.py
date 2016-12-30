@@ -115,12 +115,10 @@ class MqttPropertyHandler:
         except Exception:
             self.logger.exception("value conversion error")
 
-    def write_cast_status(self, app_name, volume_level, is_volume_muted, cast_type, friendly_name):
+    def write_cast_status(self, app_name, volume_level, is_volume_muted):
         self._write(TOPIC_CURRENT_APP, app_name)
         self._write(TOPIC_VOLUME_LEVEL, volume_level)
         self._write(TOPIC_VOLUME_MUTED, is_volume_muted)
-        self._write(TOPIC_CAST_TYPE, cast_type)
-        self._write(TOPIC_FRIENDLY_NAME, friendly_name)
 
     def write_player_status(self, state, current_time, duration):
         self._write(TOPIC_PLAYER_STATE, state)
@@ -139,6 +137,10 @@ class MqttPropertyHandler:
 
     def write_connection_status(self, status):
         self._write(TOPIC_CONNECTION_STATUS, status)
+
+    def write_cast_data(self, cast_type, friendly_name):
+        self._write(TOPIC_CAST_TYPE, cast_type)
+        self._write(TOPIC_FRIENDLY_NAME, friendly_name)
 
     def handle_message(self, topic, payload):
         if isinstance(payload, bytes):
