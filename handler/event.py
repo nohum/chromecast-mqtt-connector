@@ -144,6 +144,7 @@ class EventHandler(DiscoveryCallback, MqttConnectionCallback, ChromecastConnecti
 
     def _worker_chromecast_connection_failed(self, ip_address, connection):
         self.logger.warning("connection to device %s failed too often" % ip_address)
+        # TODO if the connection fails to often, treat it as dead
 
     def _worker_chromecast_connection_dead(self, ip_address, connection):
         self.logger.error("connection to device %s is dead, removing" % ip_address)

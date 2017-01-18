@@ -210,7 +210,12 @@ class ChromecastConnection(MqttChangesCallback):
                 else:
                     self.mqtt_properties.write_connection_status(CONNECTION_STATUS_ERROR)
 
-                self.connection_callback.on_connection_failed(self, self.ip_address)
+                # e.g. AttributeError: 'NoneType' object has no attribute 'media_controller'
+                # at least something indicating that the connection is really dead for sure
+                if isinstance(error, AttributeError):
+                    self.connection_callback.on_connection_dead(self, self.ip_address)
+                else:
+                    self.connection_callback.on_connection_failed(self, self.ip_address)
             finally:
                 self.logger.debug("command %s finished" % (item,))
                 self.processing_queue.task_done()
