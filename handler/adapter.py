@@ -1,5 +1,5 @@
 import logging
-from pychromecast import get_chromecast, ChromecastConnectionError, IDLE_APP_ID
+from pychromecast import get_chromecasts, ChromecastConnectionError, IDLE_APP_ID
 from pychromecast.controllers.media import MEDIA_PLAYER_STATE_IDLE
 from pychromecast.socket_client import CONNECTION_STATUS_CONNECTED, CONNECTION_STATUS_FAILED, \
     CONNECTION_STATUS_DISCONNECTED
@@ -223,7 +223,12 @@ class ChromecastConnection(MqttChangesCallback):
     def _internal_create_connection(self, ip_address):
         try:
             self.mqtt_properties.write_connection_status(CONNECTION_STATUS_WAITING_FOR_DEVICE)
-            self.device = get_chromecast(ip=ip_address, tries=15)
+            devices = get_chromecasts(tries=5)  # TODO not the best way to do this, change with #3
+
+            for device in devices:
+                if device.host == ip_address:
+                    self.device = device
+                    break
 
             if self.device is None:
                 self.logger.error("was not able to find chromecast %s" % self.ip_address)
