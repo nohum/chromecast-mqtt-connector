@@ -12,7 +12,7 @@ CONNECTION_STATUS_WAITING_FOR_DEVICE = "WAITING"
 CONNECTION_STATUS_ERROR = "ERROR"
 CONNECTION_STATUS_NOT_FOUND = "NOT_FOUND"
 
-CreateConnectionCommand = namedtuple("CreateConnectionCommand", ["ip_address"])
+CreateConnectionCommand = namedtuple("CreateConnectionCommand", ["device_name"])
 DisconnectCommand = namedtuple("DisconnectCommand", [])
 VolumeMuteCommand = namedtuple("VolumeMuteCommand", ["muted"])
 VolumeLevelRelativeCommand = namedtuple("VolumeLevelRelativeCommand", ["value"])
@@ -32,10 +32,10 @@ CastMediaStatus = namedtuple("CastMediaStatus", ["status"])
 
 class ChromecastConnectionCallback:
 
-    def on_connection_failed(self, chromecast_connection, ip_address):
+    def on_connection_failed(self, chromecast_connection, device_name):
         pass
 
-    def on_connection_dead(self, chromecast_connection, ip_address):
+    def on_connection_dead(self, chromecast_connection, device_name):
         pass
 
 
@@ -48,25 +48,25 @@ class ConnectionUnavailableException(Exception):
 
 class ChromecastConnection(MqttChangesCallback):
 
-    def __init__(self, ip_address, mqtt_connection, connection_callback):
+    def __init__(self, device_name, mqtt_connection, connection_callback):
         """
         Called if a new Chromecast device has been found.
         """
 
         self.logger = logging.getLogger("chromecast")
-        self.ip_address = ip_address
+        self.device_name = device_name
         self.connection_callback = connection_callback
         self.connection_failure_count = 0
         self.device_connected = False
 
-        self.mqtt_properties = MqttPropertyHandler(mqtt_connection, ip_address, self)
+        self.mqtt_properties = MqttPropertyHandler(mqtt_connection, device_name, self)
         self.processing_queue = Queue(maxsize=100)
 
         self.processing_worker = Thread(target=self._worker)
         self.processing_worker.daemon = True
         self.processing_worker.start()
 
-        self.processing_queue.put(CreateConnectionCommand(ip_address))
+        self.processing_queue.put(CreateConnectionCommand(device_name))
 
     def is_connected(self):
         # TODO thread sync
@@ -105,7 +105,7 @@ class ChromecastConnection(MqttChangesCallback):
         PyChromecast error callback.
         """
 
-        self.logger.error("received error from chromecast %s: %s" % (self.ip_address, launch_failure))
+        self.logger.error("received error from chromecast %s: %s" % (self.device_name, launch_failure))
 
     def new_connection_status(self, status):
         """
@@ -166,14 +166,14 @@ class ChromecastConnection(MqttChangesCallback):
 
                 if requires_connection and not self.device_connected:
                     self.logger.info("no connection found but connection is required")
-                    self._internal_create_connection(self.ip_address)
+                    self._internal_create_connection(self.device_name)
 
                     if not self.device_connected:
                         self.logger.error("was not able to connect to device for command %s" % (item,))
                         raise ConnectionUnavailableException()
 
                 if isinstance(item, CreateConnectionCommand):
-                    self._worker_create_connection(item.ip_address)
+                    self._worker_create_connection(item.device_name)
                 elif isinstance(item, DisconnectCommand):
                     self._worker_disconnect()
                 elif isinstance(item, VolumeMuteCommand):
@@ -213,25 +213,25 @@ class ChromecastConnection(MqttChangesCallback):
                 # e.g. AttributeError: 'NoneType' object has no attribute 'media_controller'
                 # at least something indicating that the connection is really dead for sure
                 if isinstance(error, AttributeError):
-                    self.connection_callback.on_connection_dead(self, self.ip_address)
+                    self.connection_callback.on_connection_dead(self, self.device_name)
                 else:
-                    self.connection_callback.on_connection_failed(self, self.ip_address)
+                    self.connection_callback.on_connection_failed(self, self.device_name)
             finally:
                 self.logger.debug("command %s finished" % (item,))
                 self.processing_queue.task_done()
 
-    def _internal_create_connection(self, ip_address):
+    def _internal_create_connection(self, device_name):
         try:
             self.mqtt_properties.write_connection_status(CONNECTION_STATUS_WAITING_FOR_DEVICE)
             devices = get_chromecasts(tries=5)  # TODO not the best way to do this, change with #3
 
             for device in devices:
-                if device.host == ip_address:
+                if device.device.friendly_name == device_name:
                     self.device = device
                     break
 
             if self.device is None:
-                self.logger.error("was not able to find chromecast %s" % self.ip_address)
+                self.logger.error("was not able to find chromecast %s" % self.device_name)
                 raise ConnectionUnavailableException()
 
             self.device.register_status_listener(self)
@@ -241,19 +241,19 @@ class ChromecastConnection(MqttChangesCallback):
 
             self.device_connected = True  # alibi action
         except ChromecastConnectionError:
-            self.logger.exception("had connection error while finding chromecast %s" % self.ip_address)
+            self.logger.exception("had connection error while finding chromecast %s" % self.device_name)
 
             self.device_connected = False
 
-    def _worker_create_connection(self, ip_address):
+    def _worker_create_connection(self, device_name):
         # uncaught exceptions bubble to the try-except handler of the worker thread
-        self._internal_create_connection(ip_address)
+        self._internal_create_connection(device_name)
 
         if not self.device_connected:
             self.mqtt_properties.write_connection_status(CONNECTION_STATUS_ERROR)
 
     def _worker_disconnect(self):
-        self.logger.info("disconnecting chromecast %s" % self.ip_address)
+        self.logger.info("disconnecting chromecast %s" % self.device_name)
 
         self.device_connected = False
 
@@ -337,7 +337,7 @@ class ChromecastConnection(MqttChangesCallback):
         # CastStatus(is_active_input=None, is_stand_by=None, volume_level=0.3499999940395355, volume_muted=False,
         # app_id='CC1AD845', display_name='Default Media Receiver', namespaces=['urn:x-cast:com.google.cast.media'],
         # session_id='xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxx', transport_id='web-0', status_text='Now Casting')
-        self.logger.info("received new cast status from chromecast %s" % self.ip_address)
+        self.logger.info("received new cast status from chromecast %s" % self.device_name)
 
         if status is None:
             self.logger.warning("received empty status")
@@ -353,7 +353,7 @@ class ChromecastConnection(MqttChangesCallback):
             self.mqtt_properties.write_player_status(MEDIA_PLAYER_STATE_IDLE, None, None)
 
     def _worker_cast_connection_status(self, status):
-        self.logger.info("received new connection status from chromecast %s: %s" % (self.ip_address, status.status))
+        self.logger.info("received new connection status from chromecast %s: %s" % (self.device_name, status.status))
         self.mqtt_properties.write_connection_status(status.status)
 
         self.device_connected = status.status == CONNECTION_STATUS_CONNECTED
@@ -369,7 +369,7 @@ class ChromecastConnection(MqttChangesCallback):
 
             if self.connection_failure_count > 7:
                 self.logger.warning("failure counter too high, treating chromecast as dead")
-                self.connection_callback.on_connection_dead(self, self.ip_address)
+                self.connection_callback.on_connection_dead(self, self.device_name)
 
     def _worker_cast_media_status(self, status):
         #  <MediaStatus {'media_metadata': {}, 'content_id': 'http://some.url.com/', 'player_state': 'PLAYING',
@@ -380,7 +380,7 @@ class ChromecastConnection(MqttChangesCallback):
         # 'supports_skip_backward': False, 'stream_type': 'BUFFERED', 'playback_rate': 1,
         # 'supports_skip_forward': False, 'season': None, 'duration': None, 'images': [], 'series_title': None,
         # 'supports_seek': True, 'current_time': 13938.854693, 'supported_media_commands': 15}>
-        self.logger.info("received new media status from chromecast %s" % self.ip_address)
+        self.logger.info("received new media status from chromecast %s" % self.device_name)
 
         images = status.media_metadata.get('images', [])
         image_filtered = None

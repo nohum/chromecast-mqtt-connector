@@ -9,10 +9,10 @@ from queue import PriorityQueue
 from threading import Thread
 
 MqttMessage = namedtuple("MqttMessage", ["topic", "payload"])
-DeviceAppeared = namedtuple("DeviceAppeared", ["ip_address"])
-DeviceDisappeared = namedtuple("DeviceDisappeared", ["ip_address"])
-DeviceConnectionFailure = namedtuple("DeviceConnectionFailure", ["ip_address", "connection"])
-DeviceConnectionDead = namedtuple("DeviceConnectionDead", ["ip_address", "connection"])
+DeviceAppeared = namedtuple("DeviceAppeared", ["device_name"])
+DeviceDisappeared = namedtuple("DeviceDisappeared", ["device_name"])
+DeviceConnectionFailure = namedtuple("DeviceConnectionFailure", ["device_name", "connection"])
+DeviceConnectionDead = namedtuple("DeviceConnectionDead", ["device_name", "connection"])
 
 
 class SortedPriorityQueue(PriorityQueue):
@@ -66,16 +66,16 @@ class EventHandler(DiscoveryCallback, MqttConnectionCallback, ChromecastConnecti
         self.processing_queue.put(MqttMessage(topic, payload), 2)
 
     def on_chromecast_appeared(self, device_name, model_name, ip_address, port):
-        self.processing_queue.put(DeviceAppeared(ip_address), 0)
+        self.processing_queue.put(DeviceAppeared(device_name), 0)
 
-    def on_chromecast_disappeared(self, ip_address):
-        self.processing_queue.put(DeviceDisappeared(ip_address), 0)
+    def on_chromecast_disappeared(self, device_name):
+        self.processing_queue.put(DeviceDisappeared(device_name), 0)
 
-    def on_connection_failed(self, chromecast_connection, ip_address):
-        self.processing_queue.put(DeviceConnectionFailure(ip_address, chromecast_connection), 2)
+    def on_connection_failed(self, chromecast_connection, device_name):
+        self.processing_queue.put(DeviceConnectionFailure(device_name, chromecast_connection), 2)
 
-    def on_connection_dead(self, chromecast_connection, ip_address):
-        self.processing_queue.put(DeviceConnectionDead(ip_address, chromecast_connection), 0)
+    def on_connection_dead(self, chromecast_connection, device_name):
+        self.processing_queue.put(DeviceConnectionDead(device_name, chromecast_connection), 0)
 
     def _worker(self):
         while True:
@@ -85,13 +85,13 @@ class EventHandler(DiscoveryCallback, MqttConnectionCallback, ChromecastConnecti
                 if isinstance(item, MqttMessage):
                     self._worker_mqtt_message_received(item.topic, item.payload)
                 elif isinstance(item, DeviceAppeared):
-                    self._worker_chromecast_appeared(item.ip_address)
+                    self._worker_chromecast_appeared(item.device_name)
                 elif isinstance(item, DeviceDisappeared):
-                    self._worker_chromecast_disappeared(item.ip_address)
+                    self._worker_chromecast_disappeared(item.device_name)
                 elif isinstance(item, DeviceConnectionFailure):
-                    self._worker_chromecast_connection_failed(item.ip_address, item.connection)
+                    self._worker_chromecast_connection_failed(item.device_name, item.connection)
                 elif isinstance(item, DeviceConnectionDead):
-                    self._worker_chromecast_connection_dead(item.ip_address, item.connection)
+                    self._worker_chromecast_connection_dead(item.device_name, item.connection)
             except:
                 self.logger.exception("event %s failed" % (item,))
             finally:
@@ -111,41 +111,41 @@ class EventHandler(DiscoveryCallback, MqttConnectionCallback, ChromecastConnecti
         # topic is e.g. "chromecast/%s/command/volume_level"
         parts = topic.split("/")
         if len(parts) > 2:
-            ip_address = parts[1]
-            device = ChromecastConnection(ip_address, self.mqtt_client, self)
+            device_name = parts[1]
+            device = ChromecastConnection(device_name, self.mqtt_client, self)
 
-            self.known_devices[ip_address] = device
-            self.logger.info("added device %s after receiving topic addressing it" % ip_address)
+            self.known_devices[device_name] = device
+            self.logger.info("added device %s after receiving topic addressing it" % device_name)
 
             device.handle_message(topic, payload)
 
-    def _worker_chromecast_appeared(self, ip_address):
-        if ip_address in self.known_devices:
-            self.logger.warning("device %s already known" % ip_address)
+    def _worker_chromecast_appeared(self, device_name):
+        if device_name in self.known_devices:
+            self.logger.warning("device %s already known" % device_name)
             return
 
-        self.known_devices[ip_address] = ChromecastConnection(ip_address, self.mqtt_client, self)
-        self.logger.info("added device %s" % ip_address)
+        self.known_devices[device_name] = ChromecastConnection(device_name, self.mqtt_client, self)
+        self.logger.info("added device %s" % device_name)
 
-    def _worker_chromecast_disappeared(self, ip_address):
-        if ip_address not in self.known_devices:
-            self.logger.warning("device %s not known" % ip_address)
+    def _worker_chromecast_disappeared(self, device_name):
+        if device_name not in self.known_devices:
+            self.logger.warning("device %s not known" % device_name)
             return
 
-        device = self.known_devices[ip_address]
+        device = self.known_devices[device_name]
 
         if device.is_connected():
-            self.logger.warning("device %s is still connected and not removed" % ip_address)
+            self.logger.warning("device %s is still connected and not removed" % device_name)
         else:
-            self.logger.debug("de-registering device %s" % ip_address)
+            self.logger.debug("de-registering device %s" % device_name)
 
-            self.known_devices.pop(ip_address)  # ignore result, we already have the device
+            self.known_devices.pop(device_name)  # ignore result, we already have the device
             device.unregister_device()
 
-    def _worker_chromecast_connection_failed(self, ip_address, connection):
-        self.logger.warning("connection to device %s failed too often" % ip_address)
+    def _worker_chromecast_connection_failed(self, device_name, connection):
+        self.logger.warning("connection to device %s failed too often" % device_name)
         # TODO if the connection fails to often, treat it as dead
 
-    def _worker_chromecast_connection_dead(self, ip_address, connection):
-        self.logger.error("connection to device %s is dead, removing" % ip_address)
-        self.known_devices.pop(ip_address)
+    def _worker_chromecast_connection_dead(self, device_name, connection):
+        self.logger.error("connection to device %s is dead, removing" % device_name)
+        self.known_devices.pop(device_name)
