@@ -60,5 +60,5 @@ Play something: Publish a json array with two elements (content url and content 
 You can also just publish a URL to `player_state` (just as string, not as json array, e.g.
 `http://your.stream.url.here`), the application then tries to guess the required MIME type.
 
-For other player controls, simply publish e.g. `RESUME`, `PAUSE`, `STOP`, `SKfriendly_name` or `REWIND` to
+For other player controls, simply publish e.g. `RESUME`, `PAUSE`, `STOP`, `SKIP` or `REWIND` to
 `chromecast/friendly_name/command/player_state`. Attention: This is case-sensitive!
