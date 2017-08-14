@@ -9,7 +9,7 @@ Provides status information and control capabilities of your Chromecast devices 
 * paho-mqtt
 * Zeroconf
 
-You can install the requirements in their correct versions using `pfriendly_name3 install -r requirements.txt`.
+You can install the requirements in their correct versions using `pip3 install -r requirements.txt`.
 
 ## Discovery and control
 
