@@ -12,7 +12,7 @@ class DiscoveryCallback:
     def on_chromecast_appeared(self, device_name, model_name, ip_address, port):
         pass
 
-    def on_chromecast_disappeared(self, ip_address):
+    def on_chromecast_disappeared(self, device_name):
         pass
 
 
@@ -92,8 +92,17 @@ class ChromecastDiscovery(Thread):
         ips = zconf.cache.entries_with_name(service.server.lower())
         host = repr(ips[0]) if ips else service.server
 
-        model_name = service.properties.get('md')
-        device_name = service.properties.get('fn')
+        def get_value(key):
+            """Retrieve value and decode for Python 2/3."""
+            value = service.properties.get(key.encode('utf-8'))
 
-        self.services[name] = host
+            #if value is None or isinstance(value, six.text_type):
+            #    return value
+            return value.decode('utf-8')
+
+        model_name = get_value('md')
+        device_name = get_value('fn')
+        self.logger.info("chromecast device name \"%s\"" % device_name)
+
+        self.services[name] = device_name
         self.discovery_callback.on_chromecast_appeared(device_name, model_name, host, service.port)
