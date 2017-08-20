@@ -386,8 +386,9 @@ class ChromecastConnection(MqttChangesCallback):
         image_filtered = None
 
         for image in images:
-            image_filtered = image["url"]
-            break  # only take the first image
+            if "url" in image:
+                image_filtered = image["url"]
+                break  # only take the first image
 
         self.mqtt_properties.write_player_status(status.player_state, status.current_time, status.duration)
         self.mqtt_properties.write_media_status(status.title, status.album_name, status.artist, status.album_artist,
