@@ -51,9 +51,13 @@ class EventHandler(DiscoveryCallback, MqttConnectionCallback, ChromecastConnecti
         self.processing_worker.daemon = True
         self.processing_worker.start()
 
-    def on_mqtt_connected(self, client):
-        self.logger.debug("mqtt connected callback has been invoked")
+    def on_mqtt_init_done(self, client):
+        self.logger.debug("mqtt object is available")
         self.mqtt_client = client
+
+    def on_mqtt_connected(self):
+        self.logger.debug("mqtt connected callback has been invoked")
+
         # insert + as identifier so that every command to every identifier (= friendly names) will be recognized
         self.mqtt_client.subscribe(TOPIC_COMMAND_VOLUME_LEVEL % "+")
         self.mqtt_client.subscribe(TOPIC_COMMAND_VOLUME_MUTED % "+")

@@ -4,7 +4,13 @@ import logging
 
 class MqttConnectionCallback:
 
-    def on_mqtt_connected(self, client):
+    def on_mqtt_init_done(self, client):
+        """
+        Called if there is a mqtt connection class available (but not necessarily connected yet)
+        """
+        pass
+
+    def on_mqtt_connected(self):
         pass
 
     def on_mqtt_message_received(self, topic, payload):
@@ -28,6 +34,8 @@ class MqttConnection:
         self.connection_callback = connection_callback
         self.queue = []
 
+        self.connection_callback.on_mqtt_init_done(self)
+
     def _on_connect(self, client, userdata, flags, rc):
         """
         The callback for when the client receives a CONNACK response from the server.
@@ -36,7 +44,7 @@ class MqttConnection:
 
         # subscribing in on_connect() means that if we lose the connection and
         # reconnect then subscriptions will be renewed.
-        self.connection_callback.on_mqtt_connected(self)
+        self.connection_callback.on_mqtt_connected()
 
         if len(self.queue) > 0:
             self.logger.debug("found %d queued messages" % len(self.queue))
@@ -80,11 +88,11 @@ class MqttConnection:
         self.logger.debug("sending topic %s with value \"%s\"" % (topic, payload))
         result = self.mqtt.publish(topic, payload, retain=True)
 
-        if result == MQTT_ERR_NO_CONN and queue:
+        if result[0] == MQTT_ERR_NO_CONN and queue:
             self.logger.debug("no connection, saving message with topic %s to queue" % topic)
             self.queue.append([topic, payload])
         elif result[0] != MQTT_ERR_SUCCESS:
-            self.logger.warn("failed sending message %s, mqtt error %s" % (topic, result))
+            self.logger.warning("failed sending message %s, mqtt error %s" % (topic, result))
             return False
 
         return True
