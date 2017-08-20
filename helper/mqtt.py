@@ -1,6 +1,7 @@
 from paho.mqtt.client import Client, MQTT_ERR_NO_CONN, MQTT_ERR_SUCCESS
 import logging
 
+
 class MqttConnectionCallback:
 
     def on_mqtt_connected(self, client):
@@ -8,6 +9,7 @@ class MqttConnectionCallback:
 
     def on_mqtt_message_received(self, topic, payload):
         pass
+
 
 class MqttConnection:
 

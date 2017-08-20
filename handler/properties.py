@@ -79,7 +79,7 @@ class MqttPropertyHandler:
 
     def is_topic_filter_matching(self, topic):
         """
-        Check if a topic (e.g.: chromecast/192.168.0.1/player_state) matches our filter (the ip address part).
+        Check if a topic (e.g.: chromecast/my_device_name/player_state) matches our filter (the name part).
         """
         try:
             return topic.split("/")[1] == self.topic_filter

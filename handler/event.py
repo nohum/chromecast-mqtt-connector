@@ -54,7 +54,7 @@ class EventHandler(DiscoveryCallback, MqttConnectionCallback, ChromecastConnecti
     def on_mqtt_connected(self, client):
         self.logger.debug("mqtt connected callback has been invoked")
         self.mqtt_client = client
-        # insert + as identifier so that every command to every identifier (= ip address) will be recognized
+        # insert + as identifier so that every command to every identifier (= friendly names) will be recognized
         self.mqtt_client.subscribe(TOPIC_COMMAND_VOLUME_LEVEL % "+")
         self.mqtt_client.subscribe(TOPIC_COMMAND_VOLUME_MUTED % "+")
         self.mqtt_client.subscribe(TOPIC_COMMAND_PLAYER_POSITION % "+")
