@@ -80,11 +80,11 @@ class MqttConnection:
         self.logger.debug("sending topic %s with value \"%s\"" % (topic, payload))
         result = self.mqtt.publish(topic, payload, retain=True)
 
-        if result == MQTT_ERR_NO_CONN and queue:
+        if result[0] == MQTT_ERR_NO_CONN and queue:
             self.logger.debug("no connection, saving message with topic %s to queue" % topic)
             self.queue.append([topic, payload])
         elif result[0] != MQTT_ERR_SUCCESS:
-            self.logger.warn("failed sending message %s, mqtt error %s" % (topic, result))
+            self.logger.warning("failed sending message %s, mqtt error %s" % (topic, result))
             return False
 
         return True

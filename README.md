@@ -4,10 +4,9 @@ Provides status information and control capabilities of your Chromecast devices 
 
 ## Installation requirements
 
-* Python 3
+* Python 3.6+
 * pychromecast
 * paho-mqtt
-* Zeroconf
 
 You can install the requirements in their correct versions using `pip3 install -r requirements.txt`.
 

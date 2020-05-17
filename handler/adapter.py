@@ -1,12 +1,14 @@
 import logging
-from pychromecast import get_chromecasts, ChromecastConnectionError, IDLE_APP_ID
-from pychromecast.controllers.media import MEDIA_PLAYER_STATE_IDLE
-from pychromecast.socket_client import CONNECTION_STATUS_CONNECTED, CONNECTION_STATUS_FAILED, \
-    CONNECTION_STATUS_DISCONNECTED
-from handler.properties import MqttPropertyHandler, MqttChangesCallback
 from collections import namedtuple
 from queue import Queue
 from threading import Thread
+
+from pychromecast import IDLE_APP_ID, get_chromecasts, PyChromecastError
+from pychromecast.controllers.media import MEDIA_PLAYER_STATE_IDLE
+from pychromecast.socket_client import CONNECTION_STATUS_CONNECTED, CONNECTION_STATUS_FAILED, \
+    CONNECTION_STATUS_DISCONNECTED
+
+from handler.properties import MqttPropertyHandler, MqttChangesCallback
 
 CONNECTION_STATUS_WAITING_FOR_DEVICE = "WAITING"
 CONNECTION_STATUS_ERROR = "ERROR"
@@ -223,7 +225,7 @@ class ChromecastConnection(MqttChangesCallback):
     def _internal_create_connection(self, device_name):
         try:
             self.mqtt_properties.write_connection_status(CONNECTION_STATUS_WAITING_FOR_DEVICE)
-            devices = get_chromecasts(tries=5)  # TODO not the best way to do this, change with #3
+            devices = get_chromecasts(tries=5)
 
             for device in devices:
                 if device.device.friendly_name == device_name:
@@ -234,13 +236,15 @@ class ChromecastConnection(MqttChangesCallback):
                 self.logger.error("was not able to find chromecast %s" % self.device_name)
                 raise ConnectionUnavailableException()
 
+            self.device.wait()
             self.device.register_status_listener(self)
             self.device.media_controller.register_status_listener(self)
             self.device.register_launch_error_listener(self)
             self.device.register_connection_listener(self)
 
             self.device_connected = True  # alibi action
-        except ChromecastConnectionError:
+            self.logger.info("connected to chromecast %s" % self.device_name)
+        except PyChromecastError:
             self.logger.exception("had connection error while finding chromecast %s" % self.device_name)
 
             self.device_connected = False

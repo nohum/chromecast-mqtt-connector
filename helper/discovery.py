@@ -40,10 +40,10 @@ class ChromecastDiscovery(Thread):
             self.run_condition.notify_all()
 
     def run(self):
-        try:
-            zeroconf = Zeroconf()
-            browser = ServiceBrowser(zeroconf, GOOGLE_CAST_IDENTIFIER, self)
+        zeroconf = Zeroconf()
+        browser = ServiceBrowser(zeroconf, GOOGLE_CAST_IDENTIFIER, self)
 
+        try:
             with self.run_condition:
                 self.run_condition.wait()
 
@@ -93,11 +93,8 @@ class ChromecastDiscovery(Thread):
         host = repr(ips[0]) if ips else service.server
 
         def get_value(key):
-            """Retrieve value and decode for Python 2/3."""
             value = service.properties.get(key.encode('utf-8'))
 
-            #if value is None or isinstance(value, six.text_type):
-            #    return value
             return value.decode('utf-8')
 
         model_name = get_value('md')
