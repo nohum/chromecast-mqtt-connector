@@ -3,7 +3,7 @@ from collections import namedtuple
 from queue import Queue
 from threading import Thread
 
-from pychromecast import IDLE_APP_ID, get_chromecasts, PyChromecastError
+from pychromecast import IDLE_APP_ID, get_listed_chromecasts, PyChromecastError
 from pychromecast.controllers.media import MEDIA_PLAYER_STATE_IDLE
 from pychromecast.socket_client import CONNECTION_STATUS_CONNECTED, CONNECTION_STATUS_FAILED, \
     CONNECTION_STATUS_DISCONNECTED
@@ -225,16 +225,13 @@ class ChromecastConnection(MqttChangesCallback):
     def _internal_create_connection(self, device_name):
         try:
             self.mqtt_properties.write_connection_status(CONNECTION_STATUS_WAITING_FOR_DEVICE)
-            devices = get_chromecasts(tries=5)
+            devices, browser = get_listed_chromecasts(friendly_names=[device_name])
 
-            for device in devices:
-                if device.device.friendly_name == device_name:
-                    self.device = device
-                    break
-
-            if self.device is None:
+            if not devices:
                 self.logger.error("was not able to find chromecast %s" % self.device_name)
                 raise ConnectionUnavailableException()
+            else:
+                self.device = devices[0]
 
             self.device.wait()
             self.device.register_status_listener(self)
