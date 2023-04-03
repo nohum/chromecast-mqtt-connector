@@ -223,22 +223,27 @@ class MqttPropertyHandler:
 
             # noinspection PyBroadException
             try:
-                if payload[0] != "[":
-                    url = payload
-                    mime_data = mimetypes.guess_type(url, strict=False)
-                    found_mime_type = None
-                    if mime_data is not None:
-                        found_mime_type = mime_data[0]
+                # json object format
+                if payload[0] == '{':
+                    data = loads(payload)
+                    self.changes_callback.on_player_play_stream_requested(**data)
 
-                    if found_mime_type is None:
-                        self.logger.warning("no mime type found")
-
-                    self.changes_callback.on_player_play_stream_requested(url, found_mime_type)
-                else:
+                # json array format
+                elif payload[0] == '[':
                     data = loads(payload)
                     if not isinstance(data, list) or len(data) != 2:
                         raise AssertionError("data must be array and must possess two elements (url, content type)")
+                    self.changes_callback.on_player_play_stream_requested(*data)
 
-                    self.changes_callback.on_player_play_stream_requested(data[0], data[1])
+                # string format
+                else:
+                    mime_data = mimetypes.guess_type(payload, strict=False)
+                    found_mime_type = None
+                    if mime_data is not None:
+                        found_mime_type = mime_data[0]
+                    else:
+                        self.logger.warning("no mime type found")
+
+                    self.changes_callback.on_player_play_stream_requested(payload, content_type=found_mime_type)
             except Exception:
                 self.logger.exception("failed decoding requested play stream data: %s" % payload)

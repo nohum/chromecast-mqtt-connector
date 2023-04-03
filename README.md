@@ -54,10 +54,31 @@ Change volume using values from `0` to `100`:
 Change mute state: publish `0` or `1` to `chromecast/friendly_name/command/volume_muted`.
 
 
-Play something: Publish a json array with two elements (content url and content type) to
-`chromecast/friendly_name/command/player_state`, e.g. `["http://your.stream.url.here", "audio/mpeg"]`.
-You can also just publish a URL to `player_state` (just as string, not as json array, e.g.
+Play something: Publish a URL to `player_state` (just as string, not as json array, e.g.
 `http://your.stream.url.here`), the application then tries to guess the required MIME type.
+
+Or you can publish a json array with two elements (content url and content type) to
+`chromecast/friendly_name/command/player_state`, e.g. `["http://your.stream.url.here", "audio/mpeg"]`.
+
+Or you can publish a json object with any of the following properties, e.g.
+`{"url": "http://http://your.stream.url.here", "content_type": "audio/mpeg", "enqueue": false}`.
+
+Known properties from pychromecast BaseMediaPlayer.play_media() function:
+```
+"url": "http://http://your.stream.url.here"
+"content_type": "audio/mpeg"
+"title": null
+"thumb": null
+"current_time": null
+"autoplay": true
+"stream_type": "BUFFERED"
+"metadata": null
+"subtitles": null
+"subtitles_lang": "en-US"
+"subtitles_mime": "text/vtt"
+"subtitle_id": 1
+"enqueue": false
+```
 
 For other player controls, simply publish e.g. `RESUME`, `PAUSE`, `STOP`, `SKIP` or `REWIND` to
 `chromecast/friendly_name/command/player_state`. Attention: This is case-sensitive!

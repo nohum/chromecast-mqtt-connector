@@ -20,7 +20,7 @@ VolumeMuteCommand = namedtuple("VolumeMuteCommand", ["muted"])
 VolumeLevelRelativeCommand = namedtuple("VolumeLevelRelativeCommand", ["value"])
 VolumeLevelAbsoluteCommand = namedtuple("VolumeLevelAbsoluteCommand", ["value"])
 PlayerPositionCommand = namedtuple("PlayerPositionCommand", ["position"])
-PlayerPlayStreamCommand = namedtuple("PlayerPlayStreamCommand", ["content_url", "content_type"])
+PlayerPlayStreamCommand = namedtuple("PlayerPlayStreamCommand", ["url", "content_type", "title", "thumb", "current_time", "autoplay", "stream_type", "metadata", "subtitles", "subtitles_lang", "subtitles_mime", "subtitle_id", "enqueue"])
 PlayerPauseCommand = namedtuple("PlayerPauseCommand", [])
 PlayerResumeCommand = namedtuple("PlayerResumeCommand", [])
 PlayerStopCommand = namedtuple("PlayerStopCommand", [])
@@ -135,8 +135,8 @@ class ChromecastConnection(MqttChangesCallback):
     def on_player_position_requested(self, position):
         self.processing_queue.put(PlayerPositionCommand(position))
 
-    def on_player_play_stream_requested(self, content_url, content_type):
-        self.processing_queue.put(PlayerPlayStreamCommand(content_url, content_type))
+    def on_player_play_stream_requested(self, url, content_type, title=None, thumb=None, current_time=None, autoplay=True, stream_type="BUFFERED", metadata=None, subtitles=None, subtitles_lang="en-US", subtitles_mime="text/vtt", subtitle_id=1, enqueue=False):
+        self.processing_queue.put(PlayerPlayStreamCommand(url, content_type, title, thumb, current_time, autoplay, stream_type, metadata, subtitles, subtitles_lang, subtitles_mime, subtitle_id, enqueue))
 
     def on_player_pause_requested(self):
         self.processing_queue.put(PlayerPauseCommand())
@@ -187,7 +187,7 @@ class ChromecastConnection(MqttChangesCallback):
                 elif isinstance(item, PlayerPositionCommand):
                     self._worker_player_position(item.position)
                 elif isinstance(item, PlayerPlayStreamCommand):
-                    self._worker_player_play_stream(item.content_url, item.content_type)
+                    self._worker_player_play_stream(item)
                 elif isinstance(item, PlayerPauseCommand):
                     self._worker_player_pause()
                 elif isinstance(item, PlayerResumeCommand):
@@ -302,10 +302,10 @@ class ChromecastConnection(MqttChangesCallback):
 
         self.device.media_controller.seek(position)
 
-    def _worker_player_play_stream(self, content_url, content_type):
-        self.logger.info("play stream request, url = %s, type = %s" % (content_url, content_type))
+    def _worker_player_play_stream(self, stream):
+        self.logger.info("play stream request, url = %s, content_type = %s" % (stream.url, stream.content_type))
 
-        self.device.media_controller.play_media(content_url, content_type, autoplay=True)
+        self.device.media_controller.play_media(url=stream.url, content_type=stream.content_type, title=stream.title, thumb=stream.thumb, current_time=stream.current_time, autoplay=stream.autoplay, stream_type=stream.stream_type, metadata=stream.metadata, subtitles=stream.subtitles, subtitles_lang=stream.subtitles_lang, subtitles_mime=stream.subtitles_mime, subtitle_id=stream.subtitle_id, enqueue=stream.enqueue)
 
     def _worker_player_pause(self):
         self.logger.info("pause request")
