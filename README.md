@@ -80,5 +80,5 @@ Known properties from pychromecast BaseMediaPlayer.play_media() function:
 "enqueue": false
 ```
 
-For other player controls, simply publish e.g. `RESUME`, `PAUSE`, `STOP`, `SKIP` or `REWIND` to
-`chromecast/friendly_name/command/player_state`. Attention: This is case-sensitive!
+For other player controls, simply publish e.g. `RESUME`, `PAUSE`, `STOP`, `SKIP`, `REWIND`,
+`PREV` or `NEXT` to `chromecast/friendly_name/command/player_state`. Attention: This is case-sensitive!

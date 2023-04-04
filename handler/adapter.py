@@ -26,6 +26,8 @@ PlayerResumeCommand = namedtuple("PlayerResumeCommand", [])
 PlayerStopCommand = namedtuple("PlayerStopCommand", [])
 PlayerSkipCommand = namedtuple("PlayerSkipCommand", [])
 PlayerRewindCommand = namedtuple("PlayerRewindCommand", [])
+PlayerPreviousCommand = namedtuple("PlayerPreviousCommand", [])
+PlayerNextCommand = namedtuple("PlayerNextCommand", [])
 
 CastReceivedStatus = namedtuple("CastReceivedStatus", ["status"])
 CastConnectionStatus = namedtuple("CastConnectionStatus", ["status"])
@@ -153,6 +155,12 @@ class ChromecastConnection(MqttChangesCallback):
     def on_player_rewind_requested(self):
         self.processing_queue.put(PlayerRewindCommand())
 
+    def on_player_previous_requested(self):
+        self.processing_queue.put(PlayerPreviousCommand())
+
+    def on_player_next_requested(self):
+        self.processing_queue.put(PlayerNextCommand())
+
     def _worker(self):
         while True:
             # TODO we should actually only get commands from the command queue if we are connected
@@ -198,6 +206,10 @@ class ChromecastConnection(MqttChangesCallback):
                     self._worker_player_skip()
                 elif isinstance(item, PlayerRewindCommand):
                     self._worker_player_rewind()
+                elif isinstance(item, PlayerPreviousCommand):
+                    self._worker_player_previous()
+                elif isinstance(item, PlayerNextCommand):
+                    self._worker_player_next()
                 elif isinstance(item, CastReceivedStatus):
                     self._worker_cast_received_status(item.status)
                 elif isinstance(item, CastConnectionStatus):
@@ -331,6 +343,16 @@ class ChromecastConnection(MqttChangesCallback):
         self.logger.info("rewind request")
 
         self.device.media_controller.rewind()
+
+    def _worker_player_previous(self):
+        self.logger.info("previous request")
+
+        self.device.media_controller.queue_prev()
+
+    def _worker_player_next(self):
+        self.logger.info("next request")
+
+        self.device.media_controller.queue_next()
 
     # ##################################################################################
 

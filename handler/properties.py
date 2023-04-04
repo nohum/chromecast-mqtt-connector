@@ -32,6 +32,8 @@ STATE_REQUEST_PAUSE = "PAUSE"
 STATE_REQUEST_STOP = "STOP"
 STATE_REQUEST_SKIP = "SKIP"
 STATE_REQUEST_REWIND = "REWIND"
+STATE_REQUEST_PREV = "PREV"
+STATE_REQUEST_NEXT = "NEXT"
 
 
 # play stream has another syntax, not listed here therefore
@@ -66,6 +68,12 @@ class MqttChangesCallback:
         pass
 
     def on_player_rewind_requested(self):
+        pass
+
+    def on_player_prev_requested(self):
+        pass
+
+    def on_player_next_requested(self):
         pass
 
 
@@ -217,6 +225,10 @@ class MqttPropertyHandler:
             self.changes_callback.on_player_skip_requested()
         elif payload == STATE_REQUEST_REWIND:
             self.changes_callback.on_player_rewind_requested()
+        elif payload == STATE_REQUEST_PREV:
+            self.changes_callback.on_player_previous_requested()
+        elif payload == STATE_REQUEST_NEXT:
+            self.changes_callback.on_player_next_requested()
         else:
             if len(payload) == 0:
                 return
