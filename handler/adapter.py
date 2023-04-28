@@ -16,6 +16,7 @@ CONNECTION_STATUS_NOT_FOUND = "NOT_FOUND"
 
 CreateConnectionCommand = namedtuple("CreateConnectionCommand", ["device_name"])
 DisconnectCommand = namedtuple("DisconnectCommand", [])
+InfoConnectionCommand = namedtuple("InfoConnectionCommand", ["device_name", "model_name", "ip_address", "port"])
 VolumeMuteCommand = namedtuple("VolumeMuteCommand", ["muted"])
 VolumeLevelRelativeCommand = namedtuple("VolumeLevelRelativeCommand", ["value"])
 VolumeLevelAbsoluteCommand = namedtuple("VolumeLevelAbsoluteCommand", ["value"])
@@ -111,6 +112,9 @@ class ChromecastConnection(MqttChangesCallback):
 
         self.logger.error("received error from chromecast %s: %s" % (self.device_name, launch_failure))
 
+    def new_connection_info(self, device_name, model_name, ip_address, port):
+        self.processing_queue.put(InfoConnectionCommand(device_name, model_name, ip_address, port))
+
     def new_connection_status(self, status):
         """
         PyChromecast connection status callback.
@@ -170,6 +174,7 @@ class ChromecastConnection(MqttChangesCallback):
             try:
                 requires_connection = not isinstance(item, CreateConnectionCommand) \
                                       and not isinstance(item, DisconnectCommand) \
+                                      and not isinstance(item, InfoConnectionCommand) \
                                       and not isinstance(item, CastReceivedStatus) \
                                       and not isinstance(item, CastConnectionStatus) \
                                       and not isinstance(item, CastMediaStatus)
@@ -186,6 +191,8 @@ class ChromecastConnection(MqttChangesCallback):
                     self._worker_create_connection(item.device_name)
                 elif isinstance(item, DisconnectCommand):
                     self._worker_disconnect()
+                if isinstance(item, InfoConnectionCommand):
+                    self._worker_info_connection(item.device_name, item.model_name, item.ip_address, item.port)
                 elif isinstance(item, VolumeMuteCommand):
                     self._worker_volume_muted(item.muted)
                 elif isinstance(item, VolumeLevelRelativeCommand):
@@ -277,6 +284,9 @@ class ChromecastConnection(MqttChangesCallback):
             self.logger.warning("device is not available (at disconnection)")
 
         self.mqtt_properties.write_connection_status(CONNECTION_STATUS_DISCONNECTED)
+
+    def _worker_info_connection(self, device_name, model_name, ip_address, port):
+        self.mqtt_properties.write_connection_info(device_name, model_name, ip_address, port)
 
     def _worker_volume_muted(self, is_muted):
         self.logger.info("volume mute request, is muted = %s" % is_muted)

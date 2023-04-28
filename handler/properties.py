@@ -4,6 +4,8 @@ import mimetypes
 
 # only used for publishing
 TOPIC_FRIENDLY_NAME = "chromecast/%s/friendly_name"
+TOPIC_MODEL_NAME = "chromecast/%s/model_name"
+TOPIC_ADDRESS = "chromecast/%s/address"
 TOPIC_CONNECTION_STATUS = "chromecast/%s/connection_status"
 TOPIC_CAST_TYPE = "chromecast/%s/cast_type"
 TOPIC_CURRENT_APP = "chromecast/%s/current_app"
@@ -142,6 +144,11 @@ class MqttPropertyHandler:
         self._write(TOPIC_MEDIA_IMAGES, images)
         self._write(TOPIC_MEDIA_CONTENT_TYPE, content_type)
         self._write(TOPIC_MEDIA_CONTENT_URL, content_id)
+
+    def write_connection_info(self, device_name, model_name, ip_address, port):
+        self._write(TOPIC_FRIENDLY_NAME, device_name)
+        self._write(TOPIC_MODEL_NAME, model_name)
+        self._write(TOPIC_ADDRESS, "%s:%d" % (ip_address, port))
 
     def write_connection_status(self, status):
         self._write(TOPIC_CONNECTION_STATUS, status)
