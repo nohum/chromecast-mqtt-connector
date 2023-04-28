@@ -18,6 +18,8 @@ to each Chromecast.
 ```
 # - read only
 chromecast/friendly_name/friendly_name
+chromecast/friendly_name/model_name
+chromecast/friendly_name/address
 chromecast/friendly_name/connection_status
 chromecast/friendly_name/cast_type
 chromecast/friendly_name/current_app
