@@ -68,7 +68,6 @@ class ChromecastDiscovery(Thread):
 
     def add_service(self, zconf, typ, name):
         """ Add a service to the collection. """
-
         # easy filtering
         if not name.endswith(GOOGLE_CAST_IDENTIFIER):
             return
@@ -89,8 +88,7 @@ class ChromecastDiscovery(Thread):
             self.logger.warn("services not discovered for device")
             return
 
-        ips = zconf.cache.entries_with_name(service.server.lower())
-        host = repr(ips[0]) if ips else service.server
+        address = service.parsed_scoped_addresses()[0]
 
         def get_value(key):
             value = service.properties.get(key.encode('utf-8'))
@@ -102,4 +100,4 @@ class ChromecastDiscovery(Thread):
         self.logger.info("chromecast device name \"%s\"" % device_name)
 
         self.services[name] = device_name
-        self.discovery_callback.on_chromecast_appeared(device_name, model_name, host, service.port)
+        self.discovery_callback.on_chromecast_appeared(device_name, model_name, address, service.port)

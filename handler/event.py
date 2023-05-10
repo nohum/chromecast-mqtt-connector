@@ -9,7 +9,7 @@ from queue import PriorityQueue
 from threading import Thread
 
 MqttMessage = namedtuple("MqttMessage", ["topic", "payload"])
-DeviceAppeared = namedtuple("DeviceAppeared", ["device_name"])
+DeviceAppeared = namedtuple("DeviceAppeared", ["device_name", "model_name", "ip_address", "port"])
 DeviceDisappeared = namedtuple("DeviceDisappeared", ["device_name"])
 DeviceConnectionFailure = namedtuple("DeviceConnectionFailure", ["device_name", "connection"])
 DeviceConnectionDead = namedtuple("DeviceConnectionDead", ["device_name", "connection"])
@@ -66,7 +66,7 @@ class EventHandler(DiscoveryCallback, MqttConnectionCallback, ChromecastConnecti
         self.processing_queue.put(MqttMessage(topic, payload), 2)
 
     def on_chromecast_appeared(self, device_name, model_name, ip_address, port):
-        self.processing_queue.put(DeviceAppeared(device_name), 0)
+        self.processing_queue.put(DeviceAppeared(device_name, model_name, ip_address, port), 0)
 
     def on_chromecast_disappeared(self, device_name):
         self.processing_queue.put(DeviceDisappeared(device_name), 0)
@@ -85,7 +85,7 @@ class EventHandler(DiscoveryCallback, MqttConnectionCallback, ChromecastConnecti
                 if isinstance(item, MqttMessage):
                     self._worker_mqtt_message_received(item.topic, item.payload)
                 elif isinstance(item, DeviceAppeared):
-                    self._worker_chromecast_appeared(item.device_name)
+                    self._worker_chromecast_appeared(item.device_name, item.model_name, item.ip_address, item.port)
                 elif isinstance(item, DeviceDisappeared):
                     self._worker_chromecast_disappeared(item.device_name)
                 elif isinstance(item, DeviceConnectionFailure):
@@ -119,12 +119,13 @@ class EventHandler(DiscoveryCallback, MqttConnectionCallback, ChromecastConnecti
 
             device.handle_message(topic, payload)
 
-    def _worker_chromecast_appeared(self, device_name):
+    def _worker_chromecast_appeared(self, device_name, model_name, ip_address, port):
         if device_name in self.known_devices:
             self.logger.warning("device %s already known" % device_name)
             return
 
         self.known_devices[device_name] = ChromecastConnection(device_name, self.mqtt_client, self)
+        self.known_devices[device_name].new_connection_info(device_name, model_name, ip_address, port)
         self.logger.info("added device %s" % device_name)
 
     def _worker_chromecast_disappeared(self, device_name):
