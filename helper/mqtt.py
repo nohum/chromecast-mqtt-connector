@@ -1,4 +1,4 @@
-from paho.mqtt.client import Client, MQTT_ERR_NO_CONN, MQTT_ERR_SUCCESS
+from paho.mqtt import client
 import logging
 
 
@@ -16,7 +16,7 @@ class MqttConnection:
     def __init__(self, ip, port, username, password, connection_callback):
         self.logger = logging.getLogger("mqtt")
 
-        self.mqtt = Client()
+        self.mqtt = client.Client(client.CallbackAPIVersion.VERSION2)
         if username is not None:
             self.mqtt.username_pw_set(username, password)
 
@@ -28,11 +28,11 @@ class MqttConnection:
         self.connection_callback = connection_callback
         self.queue = []
 
-    def _on_connect(self, client, userdata, flags, rc):
+    def _on_connect(self, client, userdata, flags, rc, properties):
         """
         The callback for when the client receives a CONNACK response from the server.
         """
-        self.logger.debug("connected to mqtt with result code %d" % rc)
+        self.logger.debug("connected to mqtt with result code %s" % rc)
 
         # subscribing in on_connect() means that if we lose the connection and
         # reconnect then subscriptions will be renewed.
@@ -60,30 +60,30 @@ class MqttConnection:
         self.logger.debug("subscribing to topic %s" % topic)
         result = self.mqtt.subscribe(topic)
 
-        if result[0] == MQTT_ERR_NO_CONN:
+        if result[0] == client.MQTT_ERR_NO_CONN:
             self.logger.warning("no connection while trying to subscribe to topic %s" % topic)
             return False
 
-        return result[0] == MQTT_ERR_SUCCESS
+        return result[0] == client.MQTT_ERR_SUCCESS
 
     def unsubscribe(self, topic):
         self.logger.debug("unsubscribing from topic %s" % topic)
         result = self.mqtt.unsubscribe(topic)
 
-        if result[0] == MQTT_ERR_NO_CONN:
+        if result[0] == client.MQTT_ERR_NO_CONN:
             self.logger.warning("no connection while trying to unsubscribe from topic %s" % topic)
             return False
 
-        return result[0] == MQTT_ERR_SUCCESS
+        return result[0] == client.MQTT_ERR_SUCCESS
 
     def _internal_send_message(self, topic, payload, queue):
         self.logger.debug("sending topic %s with value \"%s\"" % (topic, payload))
         result = self.mqtt.publish(topic, payload, retain=True)
 
-        if result[0] == MQTT_ERR_NO_CONN and queue:
+        if result[0] == client.MQTT_ERR_NO_CONN and queue:
             self.logger.debug("no connection, saving message with topic %s to queue" % topic)
             self.queue.append([topic, payload])
-        elif result[0] != MQTT_ERR_SUCCESS:
+        elif result[0] != client.MQTT_ERR_SUCCESS:
             self.logger.warning("failed sending message %s, mqtt error %s" % (topic, result))
             return False
 
