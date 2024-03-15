@@ -1,2 +1,2 @@
-paho-mqtt==1.6.1
-PyChromecast==12.1.4
+paho-mqtt==2.0.0
+PyChromecast==13.1.0

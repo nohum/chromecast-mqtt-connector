@@ -4,7 +4,7 @@ Provides status information and control capabilities of your Chromecast devices 
 
 ## Installation requirements
 
-* Python 3.6+
+* Python 3.7+
 * pychromecast
 * paho-mqtt
 
